@@ -1,0 +1,31 @@
+# Build products
+.build/
+build/
+.swiftpm/
+*.xcodeproj
+xcuserdata/
+DerivedData/
+
+# macOS
+.DS_Store
+
+# Task folders of Artel (formerly Aide): personal tasks, session archives and transcripts
+/.aide/
+/.artel/
+
+# Personal settings of coding agents
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Secrets: environment files, private keys, signing identities
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.keychain
+*.keychain-db
+# Sparkle EdDSA private key exports (generate_keys -x <file>): keep them outside the repo
+*[Ss]parkle*[Kk]ey*

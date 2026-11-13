@@ -1,0 +1,58 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+Artel is a native macOS 26+ (arm64) SwiftUI app for running several coding-agent sessions (Claude Code, Kimi Code) in parallel, with a lightweight task board: a task is a prompt with attachments that can be dropped into a session, optionally in its own git worktree. Product spec: `docs/SPEC.md`; user-facing overview and hotkeys: `README.md`. UI strings, docs and comments to the operator are in Russian.
+
+## Build & test
+
+Only Command Line Tools are installed — no Xcode. Everything goes through SwiftPM and the scripts:
+
+```sh
+scripts/build-app.sh             # release → build/Artel.app (builds Artel, artel-hook, bundles tmux, ad-hoc signs)
+scripts/build-app.sh debug       # debug build
+scripts/build-app.sh --install   # also copy to /Applications (needed for running sessions to pick up a new artel-hook)
+scripts/test.sh                  # unit tests (swift-testing); wraps `swift test` with CLT framework paths
+scripts/test.sh --filter HistoryTests          # one suite / file
+scripts/test.sh --filter "TaskFileFormat/roundTrip"   # one test
+scripts/release.sh 0.2.0 [--notes notes.md] [--dry-run]   # GitHub release + Sparkle appcast; one-time setup in its header
+```
+
+Use `scripts/test.sh`, not bare `swift test` — under CLT the latter cannot find the Testing framework. Tests cover `ArtelCore` only; the app target has no tests.
+
+CLT constraints that matter when adding code or dependencies:
+- SwiftUI/Observation macros that need Xcode's plugin are unavailable: no `@Entry`, no `#Preview`. Dependencies that use them (e.g. Textual) won't build — that is why markdown preview uses MarkdownUI.
+- The `Artel` target compiles in Swift 5 language mode; `ArtelCore`/`ArtelHook` use Swift 6. In Swift 5 mode prefer `NSRegularExpression` over Swift `Regex` literals (lookbehind / bare `/.../` literals don't work).
+
+## Architecture
+
+Three SwiftPM targets:
+- `ArtelCore` — all testable logic: models (`Models.swift`, `TaskModel.swift`), tmux control, the agent launch command (`CodingAgent.swift`), hook event log and the session status state machine (`SessionActivity`/`SessionStatus.applying`), task storage, git worktrees and diff, prompt templates, project docs discovery, usage limits.
+- `ArtelHook` (`artel-hook`) — hook handler for Claude Code and Kimi Code sessions. Must always exit 0 and print nothing; appends to `events/<session>.jsonl` and pings the app over a unix socket.
+- `Artel` — the SwiftUI app. `AppModel` (`@Observable`, split into `AppModel.swift`, `+Tasks`, `+NoTasks`, `+Workflow`) owns all state; views in `Sources/Artel/Views`.
+
+Session flow: the app starts an agent (`claude --settings <hooks> --session-id <id>` for Claude Code, `kimi` with hooks from `~/.kimi-code/config.toml` for Kimi Code) inside a private tmux server (`tmux -L artel`) and shows it via SwiftTerm. Hooks → `artel-hook` → `events/*.jsonl` is the source of truth for session status (replayed on launch); the socket is only for live updates. Sessions survive app quit; a missing tmux session is revived with the agent's resume command (`claude --resume` / `kimi --session`). Agents implement `CodingAgent` (`ClaudeCodeAgent`, `KimiCodeAgent`, registry `CodingAgents`); per-agent default models live in `AppSettings.defaultModels`, the default agent in `defaultAgentID`.
+
+Tasks are files, not app state: `<project>/.artel/tasks/<ID>-<slug>/` holds `task.md` (frontmatter + body = prompt), `history.jsonl` (append-only timeline), `attachments/` and `logs/`. Statuses are `new` → `in-progress` (set on launch) → `done` (operator only); there is no plan/review/testing workflow, no comments and no MCP server — the prompt is the first message and the rest happens in the terminal. Old task.md files are tolerated: `TaskStatus(stored:)` maps legacy stages to `in-progress` and `cancelled` to `done`, obsolete frontmatter keys are dropped on rewrite. The app reloads tasks by fingerprint, so external edits are expected. A task runs in the project checkout unless the launch dialog asks for a worktree: then it gets `~/.artel/worktrees/<project>/<ID>` on branch `artel/<ID>-<slug>`, with `.artel/` excluded via sparse-checkout, and keeps it for later launches. Artel never merges: closing a task can remove the worktree and an already merged branch. The agent reaches the task folder through `--add-dir`.
+
+Sessions without a task are archived by `NoTaskStore` in `<project>/.artel/no-task/<session-id>/`, titled from the first prompt and expired seven days after their last update on every read/write. Promotion moves the whole archive into `tasks/` as a numbered `done` task with its history and logs. `no-task/` and `tasks/*/logs/` are never committed.
+
+App data: `~/Library/Application Support/Artel/` (`state.json`, `events/`, generated `claude-settings.json`, `tmux.conf`, `bin/artel-hook`).
+
+Self-update: Sparkle (SwiftPM binary framework, copied into `Contents/Frameworks` by `build-app.sh`). `SUFeedURL` is `appcast.xml` of the latest GitHub release of `UxiT/artel`. `scripts/release.sh` sets `CFBundleShortVersionString` and `CFBundleVersion` (kept equal), builds, zips, signs the zip with the EdDSA key from the Keychain (`generate_appcast`), packs a DMG for first installs (app + `/Applications` link; Sparkle updates use the zip) and publishes all three with `gh`. The updater (`Updater.swift`) stays off while `SUPublicEDKey` is empty, outside an .app bundle and with `ARTEL_HOME`.
+
+Artel used to be called Aide. `LegacyAide` (core) and `LegacyMigration` (app) upgrade an Aide install in place: they quit Aide, move `Application Support/Aide` (leaving a symlink for running sessions), keep using the `aide` tmux server while it is up and rename its sessions, read a project's `.aide/` task folder in place (`TaskStore.dirName`), accept old JSON keys, `AIDE_*` variables in the hook and Kimi's old config block. Keep the old names inside that layer; don't rename them elsewhere.
+
+## Running / verifying the UI
+
+There is no way to drive the UI by gestures from outside, so verification uses built-in debug hooks (see `Sources/Artel/DebugSnapshot.swift` for the step list):
+- `ARTEL_HOME=<tmp dir>` — isolated data dir (use this for a second/dev instance; don't touch the user's real state). Also set `KIMI_CODE_HOME=<tmp dir>`: otherwise the instance rewrites the hooks block in the real `~/.kimi-code/config.toml` to point at its own hook binary.
+- `ARTEL_WORKTREES=<dir>` — worktree root override.
+- `ARTEL_SNAPSHOT=/path.png` — renders the main window (or the open sheet) to PNG every 3 s, no screen-recording permission needed. Vibrancy/toolbar glass renders as blank blobs — a known artifact, not a bug.
+- `ARTEL_DEBUG_SCRIPT='[{"section":"tasks"},{"open":"ARTEL-1"},{"preview":true},{"snapshot":"/path.png"}]'` — scripted actions after start-up (select, launch, setStatus, done, …); progress goes to `$ARTEL_DEBUG_LOG`.
+
+## Constraints
+
+- Subscription limits are read from the existing Claude Code (Keychain) and Kimi Code (`~/.kimi-code/credentials/`) logins — read only, never write them. Never print or log OAuth tokens. The User-Agent stays generic (`Artel/<version>`); never put the user's email in requests.
+- Committing `.artel/` in user projects happens only on explicit operator action.
+- Artel is GPL-3.0 (forced by STTextView, which SwiftPM links statically). New dependencies must be GPL-3.0-compatible (MIT, BSD, ISC, Apache-2.0, LGPL…; not GPL-2.0-only or proprietary). `build-app.sh` copies every checkout's license into `Contents/Resources/Licenses/`; a bundled binary that doesn't come from SwiftPM (like tmux, libevent) needs its license copied there too.
