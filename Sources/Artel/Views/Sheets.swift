@@ -6,42 +6,64 @@ struct AddProjectSheet: View {
     @Environment(\.dismiss) private var dismiss
     let pending: PendingProject
     @State private var text = ""
-    @State private var initGit = true
+    @State private var initGit = false
+
+    private var notGit: Bool { pending.issues.contains(.notAGitRepository) }
+    private var missingClaudeMD: Bool { pending.issues.contains(.missingClaudeMD) }
+    /// CLAUDE.md is missing or has no description: the sheet offers to fill it, adding without it is allowed too.
+    private var offersClaudeMD: Bool { missingClaudeMD || pending.issues.contains(.emptyClaudeMD) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Добавление проекта «\(pending.url.lastPathComponent)»").font(.title3.bold())
             Text(pending.url.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
 
-            if pending.issues.contains(.notAGitRepository) {
+            if notGit {
                 GroupBox {
-                    Toggle("Папка не git-репозиторий — выполнить `git init`", isOn: $initGit)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Выполнить `git init`", isOn: $initGit)
+                        Text("Папка не git-репозиторий. Без git задачи работают прямо в папке проекта: отдельный worktree и просмотр изменений недоступны.")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            Text(pending.issues.contains(.missingClaudeMD)
-                 ? "В проекте нет CLAUDE.md. Заполните описание — оно обязательно; агент читает этот файл в каждой сессии."
-                 : "CLAUDE.md пустой. Заполните описание проекта — оно обязательно.")
-                .font(.callout)
-            MarkdownEditor(text: $text)
+            if offersClaudeMD {
+                Text(missingClaudeMD
+                     ? "В проекте нет CLAUDE.md — Claude Code читает его в каждой сессии. Заполните описание или добавьте проект без него: создать файл можно позже в разделе «Проекты»."
+                     : "CLAUDE.md пустой. Заполните описание проекта или добавьте проект как есть.")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                MarkdownEditor(text: $text)
+            }
             HStack {
-                if !ProjectValidator.hasDescription(text) {
-                    Label("Добавьте текст описания", systemImage: "exclamationmark.circle")
+                if offersClaudeMD && !ProjectValidator.hasDescription(text) {
+                    Label("Чтобы сохранить CLAUDE.md, добавьте текст описания", systemImage: "exclamationmark.circle")
                         .font(.caption).foregroundStyle(.orange)
                 }
                 Spacer()
                 Button("Отмена") { model.pendingProject = nil; dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Сохранить и добавить") {
-                    model.completePendingProject(pending, claudeMD: text, initGit: initGit)
+                if offersClaudeMD {
+                    Button(missingClaudeMD ? "Добавить без CLAUDE.md" : "Добавить как есть") {
+                        model.completePendingProject(pending, claudeMD: nil, initGit: initGit)
+                    }
+                    Button("Сохранить и добавить") {
+                        model.completePendingProject(pending, claudeMD: text, initGit: initGit)
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!ProjectValidator.hasDescription(text))
+                } else {
+                    Button("Добавить") {
+                        model.completePendingProject(pending, claudeMD: nil, initGit: initGit)
+                    }
+                    .keyboardShortcut(.defaultAction)
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!ProjectValidator.hasDescription(text)
-                          || (pending.issues.contains(.notAGitRepository) && !initGit))
             }
         }
         .padding(20)
-        .frame(width: 720, height: 620)
+        .frame(width: offersClaudeMD ? 720 : 520, height: offersClaudeMD ? 620 : nil)
         .onAppear { text = pending.claudeMD }
     }
 }
@@ -186,12 +208,21 @@ struct ProjectSettingsSheet: View {
                     ForEach(model.agent.models) { m in Text(m.title).tag(m.id) }
                 }
                 TextField("Префикс задач", text: $project.taskPrefix)
-                TextField("Базовая ветка", text: Binding(get: { project.baseBranch ?? "" },
-                                                         set: { project.baseBranch = $0.isEmpty ? nil : $0 }),
-                          prompt: Text("текущая ветка репозитория"))
+                if project.isGitRepository {
+                    TextField("Базовая ветка", text: Binding(get: { project.baseBranch ?? "" },
+                                                             set: { project.baseBranch = $0.isEmpty ? nil : $0 }),
+                              prompt: Text("текущая ветка репозитория"))
+                }
                 EditorSettingRow(editorPath: $project.editorPath)
-                Toggle("Хранить .artel/ в git", isOn: $project.storeArtelInGit)
-                    .help("Выключено — .artel/ добавляется в .gitignore проекта")
+                if project.isGitRepository {
+                    Toggle("Хранить .artel/ в git", isOn: $project.storeArtelInGit)
+                        .help("Выключено — .artel/ добавляется в .gitignore проекта")
+                } else {
+                    LabeledContent("Git") {
+                        Text("не репозиторий: задачи работают в папке проекта, без worktree и diff")
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             .formStyle(.grouped)
             HStack {

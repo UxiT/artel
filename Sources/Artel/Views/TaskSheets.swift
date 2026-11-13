@@ -22,6 +22,8 @@ struct TaskLaunchSheet: View {
             let target = request.sessionID.flatMap { model.record($0) }
             let otherTask = target.map { $0.taskID != task.taskID || $0.projectID != task.projectID } ?? false
             let needsModel = task.model == nil || task.model == ""
+            // The last worktree choice is remembered across projects; a folder without git can't use it.
+            let isGit = model.project(task.projectID)?.isGitRepository ?? false
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Запуск \(task.taskID)").font(.title3.bold())
@@ -48,11 +50,15 @@ struct TaskLaunchSheet: View {
                         LabeledContent("Worktree") {
                             Text(worktree).font(.caption.monospaced()).lineLimit(2).truncationMode(.middle)
                         }
-                    } else {
+                    } else if isGit {
                         Toggle("Отдельный git worktree", isOn: $useWorktree)
                         Text(useWorktree
                              ? "Агент работает в копии проекта на ветке \(WorktreeLayout.branch(for: task)). Слить её — вручную."
                              : "Агент работает прямо в рабочей копии проекта.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        LabeledContent("Рабочая папка", value: "папка проекта")
+                        Text("Проект не git-репозиторий, поэтому отдельный worktree недоступен.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
 
@@ -76,7 +82,7 @@ struct TaskLaunchSheet: View {
                     Button("Запустить") {
                         let m: String? = needsModel ? (chosenModel == customTag ? customModel.trimmingCharacters(in: .whitespaces) : chosenModel) : task.model
                         model.launch(request, model: m, saveModel: needsModel && saveModel,
-                                     clearContext: otherTask || clearContext, useWorktree: useWorktree)
+                                     clearContext: otherTask || clearContext, useWorktree: isGit && useWorktree)
                         dismiss()
                     }
                     .keyboardShortcut(.defaultAction)

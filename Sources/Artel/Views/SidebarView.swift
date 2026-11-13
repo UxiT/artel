@@ -81,7 +81,7 @@ struct SidebarView: View {
             if model.state.projects.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Нет проектов").font(.headline)
-                    Text("Добавьте папку git-репозитория или перетащите её сюда из Finder.")
+                    Text("Добавьте папку проекта или перетащите её сюда из Finder.")
                         .font(.callout).foregroundStyle(.secondary)
                     Button("Добавить проект…") { ProjectPicker.present(model) }
                 }

@@ -1,5 +1,7 @@
 import Foundation
 
+/// What a folder lacks to use everything Artel offers. Only `notADirectory` blocks adding a project: without git there
+/// are no task worktrees and diffs, without a filled CLAUDE.md Claude Code starts with no project description.
 public enum ProjectValidator {
     public enum Issue: Equatable, Sendable {
         case notADirectory
@@ -13,8 +15,7 @@ public enum ProjectValidator {
         var isDir: ObjCBool = false
         guard fm.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue else { return [.notADirectory] }
         var result: [Issue] = []
-        // `.git` is a directory in a normal clone and a file in a worktree/submodule.
-        if !fm.fileExists(atPath: url.appendingPathComponent(".git").path) { result.append(.notAGitRepository) }
+        if !isGitRepository(url) { result.append(.notAGitRepository) }
         let claudeMD = url.appendingPathComponent("CLAUDE.md")
         if !fm.fileExists(atPath: claudeMD.path) {
             result.append(.missingClaudeMD)
@@ -22,6 +23,12 @@ public enum ProjectValidator {
             result.append(.emptyClaudeMD)
         }
         return result
+    }
+
+    /// The folder is the root of a git repository. `.git` is a directory in a normal clone and a file in a
+    /// worktree/submodule. Checked live, not stored: the operator may run `git init` after adding the project.
+    public static func isGitRepository(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.appendingPathComponent(".git").path)
     }
 
     /// The description is "filled" when there is real text besides headings, comments and template hints.
@@ -69,4 +76,9 @@ public enum ProjectValidator {
         <!-- Стиль кода, правила коммитов, что агенту делать нельзя. -->
         """
     }
+}
+
+extension Project {
+    /// Worktrees, diffs, the base branch and committing `.artel/` need git; without it tasks run in the project folder.
+    public var isGitRepository: Bool { ProjectValidator.isGitRepository(url) }
 }

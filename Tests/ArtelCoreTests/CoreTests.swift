@@ -256,6 +256,18 @@ private func fold(_ events: [HookEvent]) -> SessionStatus {
         #expect(ProjectValidator.issues(at: dir).isEmpty)
         #expect(ProjectValidator.issues(at: dir.appendingPathComponent("nope")) == [.notADirectory])
     }
+
+    @Test func gitRepositoryIsDetectedLive() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let project = Project(name: "p", path: dir.path)
+        #expect(!project.isGitRepository)
+        // A worktree or submodule has a `.git` file instead of a directory.
+        try "gitdir: /elsewhere\n".write(to: dir.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
+        #expect(project.isGitRepository)
+        #expect(!ProjectValidator.issues(at: dir).contains(.notAGitRepository))
+    }
 }
 
 @Suite struct GridLayoutTests {

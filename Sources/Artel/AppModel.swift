@@ -2,7 +2,7 @@ import ArtelCore
 import AppKit
 import Observation
 
-/// Request to add a project that still needs fixing (git, CLAUDE.md).
+/// Request to add a project that lacks git or a filled CLAUDE.md: the sheet offers both, neither is required.
 struct PendingProject: Identifiable {
     let id = UUID()
     var url: URL
@@ -337,20 +337,16 @@ final class AppModel {
         pendingProject = PendingProject(url: url, issues: issues, claudeMD: text)
     }
 
-    /// Finishes adding a pending project: optional `git init`, writes CLAUDE.md.
-    func completePendingProject(_ pending: PendingProject, claudeMD: String, initGit: Bool) {
+    /// Finishes adding a pending project: optional `git init`, writes CLAUDE.md unless it is nil (added without it).
+    func completePendingProject(_ pending: PendingProject, claudeMD: String?, initGit: Bool) {
         do {
             if initGit && pending.issues.contains(.notAGitRepository) {
                 let git = ShellEnvironment.which("git", path: loginEnvironment["PATH"]) ?? "/usr/bin/git"
                 let r = try Shell.run(git, ["init"], environment: loginEnvironment, cwd: pending.url.path)
                 guard r.ok else { throw ArtelError.invalidProject("git init: \(r.stderr)") }
             }
-            try claudeMD.write(to: pending.url.appendingPathComponent("CLAUDE.md"), atomically: true, encoding: .utf8)
-            let remaining = ProjectValidator.issues(at: pending.url)
-            guard remaining.isEmpty else {
-                errorMessage = remaining.contains(.notAGitRepository)
-                    ? "Проект должен быть git-репозиторием." : "Заполните описание проекта в CLAUDE.md."
-                return
+            if let claudeMD {
+                try claudeMD.write(to: pending.url.appendingPathComponent("CLAUDE.md"), atomically: true, encoding: .utf8)
             }
             pendingProject = nil
             insertProject(url: pending.url)

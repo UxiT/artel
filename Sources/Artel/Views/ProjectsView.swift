@@ -15,7 +15,7 @@ struct ProjectsView: View {
                 ContentUnavailableView {
                     Label(model.state.projects.isEmpty ? "Нет проектов" : "Выберите проект", systemImage: "folder")
                 } description: {
-                    Text(model.state.projects.isEmpty ? "Добавьте папку git-репозитория или перетащите её из Finder." : "")
+                    Text(model.state.projects.isEmpty ? "Добавьте папку проекта или перетащите её из Finder." : "")
                 } actions: {
                     if model.state.projects.isEmpty {
                         Button("Добавить проект…") { ProjectPicker.present(model) }

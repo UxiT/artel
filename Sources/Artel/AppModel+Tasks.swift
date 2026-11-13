@@ -123,7 +123,8 @@ extension AppModel {
 
     func refreshArtelDirty() {
         guard let git else { return }
-        let projects = state.projects.filter(\.storeArtelInGit)
+        // Not a repository: `git status` would report an enclosing repository, if any.
+        let projects = state.projects.filter { $0.storeArtelInGit && $0.isGitRepository }
         Task.detached {
             var dirty: Set<UUID> = []
             for p in projects where !git.artelChanges(repo: p.path, taskDir: TaskStore.dirName(p)).isEmpty { dirty.insert(p.id) }
@@ -360,6 +361,10 @@ extension AppModel {
         let wantsWorktree = useWorktree || task.worktree != nil
         if wantsWorktree && git == nil {
             errorMessage = "Для worktree нужен git."
+            return
+        }
+        if wantsWorktree && task.worktree == nil && !project.isGitRepository {
+            errorMessage = "Проект «\(project.name)» не git-репозиторий — отдельный worktree недоступен."
             return
         }
         let branch = task.branch ?? WorktreeLayout.branch(for: task)

@@ -42,6 +42,8 @@ enum DebugSnapshot {
 ///   settings: true — open the Settings window · newSession: true — the new-session sheet
 ///   launchSheet: task — the launch dialog · projectSettings: project index — its settings sheet
 ///   commitSheet: project index — the .artel commit sheet · dismiss: true — close sheets and dialogs above
+///   addProject: folder path — add it, or open the add-project sheet if it lacks git or CLAUDE.md
+///   completeProject: true — finish that sheet without CLAUDE.md and git init
 /// Progress is appended to $ARTEL_DEBUG_LOG if set.
 enum DebugScript {
     @MainActor static func run(_ model: AppModel) async {
@@ -166,6 +168,14 @@ enum DebugScript {
         if step["newSession"] != nil {
             model.newSessionRequest = NewSessionRequest(projectID: model.state.projects.first?.id)
         }
+        if let path = step["addProject"] as? String {
+            model.addProject(at: URL(fileURLWithPath: path, isDirectory: true))
+            log("addProject \(path): \(model.pendingProject?.issues.map { "\($0)" } ?? ["added"])")
+        }
+        if step["completeProject"] != nil, let pending = model.pendingProject {
+            model.completePendingProject(pending, claudeMD: nil, initGit: false)
+            log("completeProject → \(model.state.projects.count) projects")
+        }
         if let t = task(model, step["launchSheet"]) {
             model.requestLaunch(taskID: t.id, intoSession: nil)
             log("launchSheet \(t.taskID): \(model.taskLaunch != nil)")
@@ -178,6 +188,7 @@ enum DebugScript {
                                                 changes: ["M .artel/tasks/SHOP-1-demo/task.md"], message: "artel: SHOP-1 → in-progress")
         }
         if step["dismiss"] != nil {
+            model.pendingProject = nil
             model.newSessionRequest = nil
             model.taskLaunch = nil
             model.projectSettingsID = nil

@@ -100,7 +100,8 @@ private struct MainWindowDialogs: ViewModifier {
     func body(content: Content) -> some View {
         @Bindable var model = model
         content
-            .sheet(item: $model.pendingProject) { AddProjectSheet(pending: $0) }
+            // A new identity per request: the sheet may be swapped to another folder without closing, keeping @State.
+            .sheet(item: $model.pendingProject) { AddProjectSheet(pending: $0).id($0.id) }
             .sheet(item: $model.newSessionRequest) { NewSessionSheet(request: $0) }
             .sheet(item: $model.installRequest) { InstallSheet(request: $0) }
             .sheet(item: $model.commitRequest) { CommitSheet(request: $0) }

@@ -73,6 +73,10 @@ scripts/release.sh 0.2.0 [--notes notes.md] [--dry-run]   # релиз на GitH
 на ветке `artel/<ID>-<slug>` (`.artel/` исключён через sparse-checkout) и сохраняет его для
 следующих запусков. Artel ничего не мержит: при закрытии задачи можно удалить worktree и
 уже слитую ветку. Агент получает доступ к папке задачи через `--add-dir`.
+Проекту не обязательно быть git-репозиторием и иметь CLAUDE.md: `ProjectValidator` лишь
+заставляет диалог добавления предложить `git init` и шаблон CLAUDE.md. Без git
+(`Project.isGitRepository`, проверяется на лету) скрыты worktree, базовая ветка и коммит
+`.artel/`, задачи работают в папке проекта.
 Сессии без задачи архивируются в `<project>/.artel/no-task/<session-id>/`
 (`NoTaskStore`): заголовок — по первому промпту, срок — 7 дней после обновления,
 очистка при чтении/записи. Преобразование переносит архив в `tasks/` как закрытую
@@ -84,9 +88,13 @@ scripts/release.sh 0.2.0 [--notes notes.md] [--dry-run]   # релиз на GitH
 Самообновление — Sparkle (бинарный фреймворк из SwiftPM, `build-app.sh` кладёт его
 в `Contents/Frameworks`). `SUFeedURL` — `appcast.xml` последнего GitHub-релиза
 `UxiT/artel`. `scripts/release.sh` выставляет `CFBundleShortVersionString` и
-`CFBundleVersion` (они равны), собирает, упаковывает в zip, подписывает EdDSA-ключом
-из Keychain (`generate_appcast`) и публикует через `gh`. Апдейтер (`Updater.swift`)
-выключен, пока `SUPublicEDKey` пуст, вне .app-бандла и при `ARTEL_HOME`.
+`CFBundleVersion` (они равны), собирает, упаковывает в zip, подписывает zip EdDSA-ключом
+из Keychain (`generate_appcast`), собирает DMG для первой установки (приложение + ссылка
+на `/Applications`; Sparkle обновляет по zip) и публикует всё через `gh`. Апдейтер
+(`Updater.swift`) проверяет обновления при каждом запуске (`checkForUpdatesInBackground`
+сразу после старта) и раз в сутки, найденное показывает собственным диалогом Sparkle
+(на русском благодаря региону разработки `ru`). Апдейтер выключен, пока `SUPublicEDKey`
+пуст, вне .app-бандла и при `ARTEL_HOME` (если не задан `ARTEL_UPDATE_FEED`).
 
 Раньше Artel назывался Aide. `LegacyAide` (ядро) и `LegacyMigration` (приложение)
 обновляют установку Aide на месте: закрывают Aide, переносят `Application Support/Aide`
@@ -105,6 +113,11 @@ scripts/release.sh 0.2.0 [--notes notes.md] [--dry-run]   # релиз на GitH
   `KIMI_CODE_HOME=<tmp dir>`, иначе экземпляр перепишет блок хуков в настоящем
   `~/.kimi-code/config.toml` на свой бинарник хука.
 - `ARTEL_WORKTREES=<dir>` — переопределение корня worktree.
+- `ARTEL_UPDATE_FEED=<URL appcast>` — включает апдейтер в экземпляре с `ARTEL_HOME` и
+  направляет его на этот фид, чтобы увидеть диалог обновления. Sparkle принимает только
+  http(s): тестовый appcast раздавайте через `python3 -m http.server --bind 127.0.0.1`.
+  Запускайте копию приложения с другим `CFBundleIdentifier`, иначе Sparkle запишет своё
+  состояние в настройки настоящего приложения.
 - `ARTEL_SNAPSHOT=/path.png` — рендер главного окна (или открытого шита) в PNG
   каждые 3 с, без прав на запись экрана. Vibrancy/стекло тулбара рендерятся
   пустыми пятнами — известный артефакт, не баг.
@@ -127,6 +140,7 @@ scripts/release.sh 0.2.0 [--notes notes.md] [--dry-run]   # релиз на GitH
 
 ## Отличия от CLAUDE.md
 
-- Этот файл читают агенты вроде Kimi Code; `CLAUDE.md` читает Claude Code и его
-  наличие обязательно для проектов внутри самого приложения (см. `ProjectValidator`).
+- Этот файл читают агенты вроде Kimi Code; `CLAUDE.md` читает Claude Code. Для проектов
+  внутри самого приложения он не обязателен: при добавлении Artel только предлагает шаблон
+  (см. `ProjectValidator`).
 - Дата-зависимости: даты в frontmatter задач — UTC ISO 8601.

@@ -164,7 +164,7 @@ enum ProjectPicker {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.prompt = "Добавить"
-        panel.message = "Выберите папку проекта (git-репозиторий)"
+        panel.message = "Выберите папку проекта"
         if panel.runModal() == .OK, let url = panel.url { model.addProject(at: url) }
     }
 }
