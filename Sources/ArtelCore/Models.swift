@@ -17,6 +17,9 @@ public struct Project: Codable, Identifiable, Equatable, Hashable, Sendable {
     public var storeArtelInGit: Bool
     /// Code editor for this project (path to the .app); nil = not chosen yet.
     public var editorPath: String?
+    /// Documentation folder relative to the project ("" = the project root); nil = detect (`DocsSite.detect`).
+    /// Kept in the app's own state, never in the project: each operator points at the docs on their machine.
+    public var docsFolder: String?
 
     public init(id: UUID = UUID(), name: String, path: String, colorIndex: Int = 0,
                 permissionMode: String = "auto", defaultModel: String? = nil, taskPrefix: String = "ARTEL",
@@ -44,6 +47,7 @@ public struct Project: Codable, Identifiable, Equatable, Hashable, Sendable {
         baseBranch = try c.decodeIfPresent(String.self, forKey: .baseBranch)
         storeArtelInGit = try c.decodeIfPresent(Bool.self, forKey: .storeArtelInGit) ?? true
         editorPath = try c.decodeIfPresent(String.self, forKey: .editorPath)
+        docsFolder = try c.decodeIfPresent(String.self, forKey: .docsFolder)
     }
 
     public var url: URL { URL(fileURLWithPath: path, isDirectory: true) }

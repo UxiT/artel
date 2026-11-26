@@ -4,40 +4,34 @@ import MarkdownUI
 import STTextView
 import SwiftUI
 
-/// Global "text / preview" choice for every markdown document in the app (task text, project docs, artifacts).
-enum MarkdownMode {
-    static let key = "markdown.preview"
-}
-
-/// Segmented "Текст | Просмотр" bound to the global choice.
-struct MarkdownModePicker: View {
-    @AppStorage(MarkdownMode.key) private var preview = false
-
-    var body: some View {
-        Picker("", selection: $preview) {
-            Text("Текст").tag(false)
-            Text("Просмотр").tag(true)
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .fixedSize()
-        .help("Режим для всех документов")
-    }
+/// What the page editor can complete after `](` and `[[`: the documentation pages, linked relative to `page`.
+struct LinkCompletionSource {
+    var page: String
+    var pages: [(path: String, title: String)]
 }
 
 /// Markdown text editor (STTextView, TextKit 2) with light syntax highlighting.
-/// Dropped files/URLs become references at the drop point via `referencesForDrop`.
+/// Dropped files/URLs become references at the drop point via `referencesForDrop`; a pasted image goes through
+/// `pasteImage`. Esc and ⌘⏎ call `onExit` (leave the editor).
 struct MarkdownTextEditor: NSViewRepresentable {
     @Binding var text: String
     /// Set by the parent to insert text at the cursor (toolbar buttons).
     var insertion: Binding<String?> = .constant(nil)
     var referencesForDrop: (([URL]) -> [String])?
+    /// Saves pasted image data (PNG) and returns the markdown to insert; nil = paste as usual.
+    var pasteImage: ((Data) -> String?)?
+    var completion: LinkCompletionSource?
+    var onExit: (() -> Void)?
+    /// The selected range (UTF-16) after every selection change.
+    var onSelection: ((NSRange) -> Void)?
     /// Editor font; code spans use the code font's family at the editor's size.
     var font: FontChoice = AppFonts.shared.settings.editor
     var codeFont: FontChoice = AppFonts.shared.settings.code
 
     final class EditorView: STTextView {
         var referencesForDrop: (([URL]) -> [String])?
+        var pasteImage: ((Data) -> String?)?
+        var onExit: (() -> Void)?
 
         override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
             super.readablePasteboardTypes + [.fileURL, .URL]
@@ -53,6 +47,64 @@ struct MarkdownTextEditor: NSViewRepresentable {
             insertText(refs.joined(separator: "\n"), replacementRange: selectedRange())
             return true
         }
+
+        override func paste(_ sender: Any?) {
+            let pb = NSPasteboard.general
+            if let pasteImage, pb.string(forType: .string) == nil, let data = Self.pngData(pb), let markdown = pasteImage(data) {
+                insertText(markdown, replacementRange: selectedRange())
+                return
+            }
+            if let referencesForDrop, pb.string(forType: .string) == nil,
+               let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+                let refs = referencesForDrop(urls)
+                if !refs.isEmpty { insertText(refs.joined(separator: "\n"), replacementRange: selectedRange()); return }
+            }
+            super.paste(sender)
+        }
+
+        static func pngData(_ pb: NSPasteboard) -> Data? {
+            if let png = pb.data(forType: .png) { return png }
+            guard let tiff = pb.data(forType: .tiff), let rep = NSBitmapImageRep(data: tiff) else { return nil }
+            return rep.representation(using: .png, properties: [:])
+        }
+
+        /// Esc leaves the editor (unless the completion list is open).
+        override func cancelOperation(_ sender: Any?) {
+            if let onExit, !isCompletionActive { onExit() } else { super.cancelOperation(sender) }
+        }
+
+        /// ⌘⏎ leaves the editor; it beats the menu's ⌘⏎ while the editor has the keyboard.
+        override func performKeyEquivalent(with event: NSEvent) -> Bool {
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if let onExit, flags == .command, event.keyCode == 36 || event.keyCode == 76, window?.firstResponder === self {
+                onExit()
+                return true
+            }
+            return super.performKeyEquivalent(with: event)
+        }
+    }
+
+    /// A row of the link completion list.
+    final class CompletionItem: NSObject, STCompletionItem {
+        let id = UUID()
+        let candidate: DocsCompletion.Candidate
+        init(_ candidate: DocsCompletion.Candidate) { self.candidate = candidate }
+
+        var view: NSView {
+            let title = NSTextField(labelWithString: candidate.title)
+            title.font = .systemFont(ofSize: NSFont.systemFontSize)
+            title.lineBreakMode = .byTruncatingTail
+            let path = NSTextField(labelWithString: candidate.path)
+            path.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+            path.textColor = .secondaryLabelColor
+            path.lineBreakMode = .byTruncatingMiddle
+            let stack = NSStackView(views: [title, path])
+            stack.orientation = .horizontal
+            stack.spacing = 8
+            stack.edgeInsets = NSEdgeInsets(top: 0, left: 6, bottom: 0, right: 6)
+            path.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            return stack
+        }
     }
 
     @MainActor final class Coordinator: NSObject, @preconcurrency STTextViewDelegate {
@@ -65,11 +117,36 @@ struct MarkdownTextEditor: NSViewRepresentable {
             MainActor.assumeIsolated { changed(notification) }
         }
 
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = notification.object as? EditorView, let onSelection = parent.onSelection else { return }
+            let range = tv.selectedRange()
+            DispatchQueue.main.async { onSelection(range) }
+        }
+
         private func changed(_ notification: Notification) {
             guard !isUpdating, let tv = notification.object as? EditorView else { return }
             let s = tv.text ?? ""
             MarkdownHighlighter.apply(to: tv, font: parent.font, code: parent.codeFont)
             if parent.text != s { parent.text = s }
+            guard parent.completion != nil else { return }
+            if DocsCompletion.query(in: s, caret: tv.selectedRange().location) != nil {
+                DispatchQueue.main.async { tv.complete(nil) }
+            } else if tv.isCompletionActive {
+                tv.cancelComplete(nil)
+            }
+        }
+
+        func textView(_ textView: STTextView, completionItemsAtLocation location: any NSTextLocation) -> [any STCompletionItem]? {
+            guard let source = parent.completion,
+                  let query = DocsCompletion.query(in: textView.text ?? "", caret: textView.selectedRange().location) else { return nil }
+            return DocsCompletion.candidates(query, pages: source.pages, fromPage: source.page).map(CompletionItem.init)
+        }
+
+        func textView(_ textView: STTextView, insertCompletionItem item: any STCompletionItem) {
+            defer { textView.cancelComplete(nil) }
+            guard let item = item as? CompletionItem,
+                  let query = DocsCompletion.query(in: textView.text ?? "", caret: textView.selectedRange().location) else { return }
+            textView.insertText(item.candidate.insertion, replacementRange: query.range)
         }
     }
 
@@ -93,17 +170,27 @@ struct MarkdownTextEditor: NSViewRepresentable {
         tv.isAutomaticQuoteSubstitutionEnabled = false
         tv.textContainer.lineFragmentPadding = 10
         tv.textDelegate = context.coordinator
-        tv.referencesForDrop = referencesForDrop
+        configure(tv)
         tv.text = text
         MarkdownHighlighter.apply(to: tv, font: font, code: codeFont)
         context.coordinator.appliedFonts = (font, codeFont)
+        if onExit != nil {
+            // A page opened for editing takes the keyboard right away.
+            DispatchQueue.main.async { tv.window?.makeFirstResponder(tv) }
+        }
         return scroll
+    }
+
+    private func configure(_ tv: EditorView) {
+        tv.referencesForDrop = referencesForDrop
+        tv.pasteImage = pasteImage
+        tv.onExit = onExit
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let tv = scroll.documentView as? EditorView else { return }
         context.coordinator.parent = self
-        tv.referencesForDrop = referencesForDrop
+        configure(tv)
         // Only replace on external changes, so typing doesn't lose the caret.
         if (tv.text ?? "") != text && !tv.hasMarkedText() {
             let selection = tv.selectedRange()
@@ -226,28 +313,97 @@ struct MarkdownPreview: View {
     }
 }
 
-/// Editor or preview depending on the global mode.
+/// How a markdown document is previewed (MarkdownWebView) and where its links and images resolve.
+struct MarkdownPreviewSource {
+    /// Served to the preview for relative images and diagrams; nil = none.
+    var root: URL?
+    /// The document's folder relative to `root`.
+    var baseDir = ""
+    var documentID: String
+    /// `@path` references and root-relative links become `artel-doc:` links (task texts, CLAUDE.md).
+    var linkReferences = false
+    var mdx = false
+    var highlight: String?
+    var anchor: String?
+    var emptyText = "Пусто"
+    /// Link clicked, as written (`artel-doc:` for references).
+    var openLink: (String) -> Void
+    /// "Ask the agent" in the context menu of a selection.
+    var askAgent: ((DocsPrompt.Fragment) -> Void)?
+}
+
+/// A markdown document: always the rendered preview, the source editor while `editing`.
 struct MarkdownPane: View {
     @Binding var text: String
+    var editing: Bool
+    var source: MarkdownPreviewSource
     var insertion: Binding<String?> = .constant(nil)
     var referencesForDrop: (([URL]) -> [String])?
-    /// Handles `artel-doc:` links and other URLs clicked in the preview.
-    var openLink: ((URL) -> Void)?
-    @AppStorage(MarkdownMode.key) private var preview = false
+    var pasteImage: ((Data) -> String?)?
+    var completion: LinkCompletionSource?
+    var onExit: (() -> Void)?
+    var onSelection: ((NSRange) -> Void)?
 
     var body: some View {
-        if preview {
-            ScrollView {
-                MarkdownPreview(text: text)
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .environment(\.openURL, OpenURLAction { url in
-                if let openLink { openLink(url); return .handled }
-                return .systemAction
-            })
+        if editing {
+            MarkdownTextEditor(text: $text, insertion: insertion, referencesForDrop: referencesForDrop,
+                               pasteImage: pasteImage, completion: completion, onExit: onExit, onSelection: onSelection)
         } else {
-            MarkdownTextEditor(text: $text, insertion: insertion, referencesForDrop: referencesForDrop)
+            let front = FrontMatter.parse(text)
+            let body = source.linkReferences ? MarkdownPreview.linkImports(front.body) : front.body
+            MarkdownWebView(
+                options: MarkdownRenderOptions(markdown: body, lineOffset: front.bodyLine, title: front.fields["title"],
+                                               mdx: source.mdx, highlight: source.highlight, anchor: source.anchor,
+                                               emptyText: source.emptyText,
+                                               baseDir: source.baseDir),
+                root: source.root, documentID: source.documentID, onLink: source.openLink, onSelection: nil,
+                askAgent: source.askAgent.map { ask in
+                    { selection in
+                        ask(DocsPrompt.fragment(source: text, firstLine: selection.firstLine, lastLine: selection.lastLine,
+                                                selectedText: selection.text))
+                    }
+                })
         }
+    }
+}
+
+/// Edit / done toggle shown above a markdown document. While editing: ⌘S saves, Esc and ⌘⏎ finish (see the editor).
+struct MarkdownEditButton: View {
+    var editing: Bool
+    var dirty: Bool
+    var canSave = true
+    var edit: () -> Void
+    var done: () -> Void
+    var save: () -> Void
+    var discard: () -> Void
+
+    var body: some View {
+        if editing {
+            if dirty {
+                Button("Отменить изменения", action: discard)
+                    .help("Вернуть текст как на диске и выйти из редактирования")
+            }
+            Button("Сохранить", action: save)
+                .keyboardShortcut("s")
+                .disabled(!dirty || !canSave)
+                .help("Сохранить (⌘S)")
+            Button(action: done) { Label("Готово", systemImage: "checkmark") }
+                .buttonStyle(.glassProminent)
+                .disabled(!canSave)
+                .help("Сохранить и вернуться к просмотру (⌘⏎ или Esc)")
+        } else {
+            Button(action: edit) { Label("Редактировать", systemImage: "pencil") }
+                .keyboardShortcut("e")
+                .help("Редактировать исходный текст (⌘E)")
+        }
+    }
+}
+
+/// VS Code-like dot for a document with unsaved changes.
+struct UnsavedDot: View {
+    var body: some View {
+        Circle().fill(Color.primary.opacity(0.75)).frame(width: 7, height: 7)
+            .help("Есть несохранённые изменения")
+            .accessibilityLabel("Не сохранено")
     }
 }

@@ -144,6 +144,8 @@ struct NewTaskSheet: View {
     @Environment(AppModel.self) private var model
     @State private var draft: TaskDraft
     @State private var confirmDiscard = false
+    /// A new text starts in the editor.
+    @State private var editingBody = true
     @FocusState private var titleFocused: Bool
     private let initial: TaskDraft
 
@@ -186,12 +188,19 @@ struct NewTaskSheet: View {
             HStack(spacing: 10) {
                 Text("Текст задачи — это промпт агенту").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                MarkdownModePicker()
+                Button { editingBody.toggle() } label: {
+                    Label(editingBody ? "Просмотр" : "Редактировать", systemImage: editingBody ? "eye" : "pencil")
+                }
+                .help(editingBody ? "Показать, как текст увидит оператор" : "Редактировать исходный текст")
             }
             .controlSize(.small)
             .padding(.horizontal, 20)
             .padding(.vertical, 6)
-            MarkdownPane(text: $draft.body)
+            MarkdownPane(text: $draft.body, editing: editingBody,
+                         source: MarkdownPreviewSource(root: model.project(draft.projectID)?.url, documentID: "new-task",
+                                                       emptyText: "Текст пуст", openLink: { link in
+                                                           if let url = URL(string: link), url.scheme != nil { NSWorkspace.shared.open(url) }
+                                                       }))
                 .frame(maxHeight: .infinity)
             Divider()
             HStack(spacing: 10) {
@@ -261,8 +270,11 @@ private struct TaskMainPane: View {
     let project: Project
     @State private var insertion: String?
 
+    private var key: DocumentKey { .task(task.id) }
+
     var body: some View {
         let current = model.task(task.id) ?? task
+        let editing = model.isEditing(key)
         VStack(alignment: .leading, spacing: 0) {
             TextField("Заголовок", text: model.taskBinding(task, \.title), axis: .vertical)
                 .font(.title2.weight(.semibold))
@@ -273,28 +285,50 @@ private struct TaskMainPane: View {
             Divider()
             HStack(spacing: 10) {
                 Text("Текст задачи — это промпт агенту").font(.caption).foregroundStyle(.secondary)
+                if model.isDirty(key) { UnsavedDot() }
                 Spacer()
-                Group {
-                    Button { insertProjectFile() } label: { Label("Файл проекта", systemImage: "at") }
-                        .help("Вставить ссылку @путь на файл проекта")
-                    Button { attachFile() } label: { Label("Прикрепить", systemImage: "paperclip") }
-                        .help("Скопировать файл или скриншот в задачу и вставить ссылку")
+                if editing {
+                    Group {
+                        Button { insertProjectFile() } label: { Label("Файл проекта", systemImage: "at") }
+                            .help("Вставить ссылку @путь на файл проекта")
+                        Button { attachFile() } label: { Label("Прикрепить", systemImage: "paperclip") }
+                            .help("Скопировать файл или скриншот в задачу и вставить ссылку")
+                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
-                MarkdownModePicker()
+                MarkdownEditButton(editing: editing, dirty: model.isDirty(key),
+                                   edit: { model.beginEditing(key, saved: current.body) },
+                                   done: { model.finishEditing(key) },
+                                   save: { model.saveDraft(key) },
+                                   discard: { model.discardDraft(key) })
             }
             .controlSize(.small)
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
-            MarkdownPane(text: model.taskBinding(task, \.body), insertion: $insertion,
+            MarkdownPane(text: Binding(get: { model.draftText(key) ?? current.body },
+                                       set: { model.updateDraft(key, text: $0) }),
+                         editing: editing,
+                         source: MarkdownPreviewSource(root: project.url, baseDir: taskFolder(current), documentID: task.id,
+                                                       linkReferences: true,
+                                                       emptyText: "Текст задачи пуст — нажмите «Редактировать» (⌘E)",
+                                                       openLink: { open($0, current) }),
+                         insertion: $insertion,
                          referencesForDrop: { urls in references(urls, current) },
-                         openLink: { open($0, current) })
+                         onExit: { model.finishEditing(key) })
                 .frame(maxHeight: .infinity)
             Divider()
             TaskFilesSection(task: current, project: project) { refs in
+                if !model.isEditing(key) { model.beginEditing(key, saved: current.body) }
                 insertion = "\n" + refs.joined(separator: "\n")
             }
         }
+    }
+
+    /// The task folder relative to the project, for attachments shown in the preview.
+    private func taskFolder(_ task: ArtelTask) -> String {
+        let root = project.url.standardizedFileURL.path + "/"
+        let dir = task.directory.standardizedFileURL.path
+        return dir.hasPrefix(root) ? String(dir.dropFirst(root.count)) : ""
     }
 
     private func references(_ urls: [URL], _ task: ArtelTask) -> [String] {
@@ -303,11 +337,14 @@ private struct TaskMainPane: View {
         }
     }
 
-    private func open(_ url: URL, _ task: ArtelTask) {
-        if let path = MarkdownPreview.docPath(url) {
+    private func open(_ link: String, _ task: ArtelTask) {
+        if let url = URL(string: link), let path = MarkdownPreview.docPath(url) {
             model.openTaskFile(path, task: task)
-        } else {
+        } else if let url = URL(string: link), let scheme = url.scheme, scheme != ArtelResourceHandler.scheme {
             NSWorkspace.shared.open(url)
+        } else {
+            let path = link.split(separator: "#").first.map(String.init) ?? link
+            model.openTaskFile(path.removingPercentEncoding ?? path, task: task)
         }
     }
 

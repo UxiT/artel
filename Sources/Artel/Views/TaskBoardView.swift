@@ -1,22 +1,32 @@
 import ArtelCore
 import SwiftUI
 
+/// Top-level sections in toolbar order (⌥⌘1…3 follow it).
 enum AppSection: String, CaseIterable, Identifiable {
-    case sessions, tasks, projects
+    case workspace, projects, tasks
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .sessions: "Сессии"
-        case .tasks: "Задачи"
+        case .workspace: "Workspace"
         case .projects: "Проекты"
+        case .tasks: "Задачи"
         }
     }
     var symbol: String {
         switch self {
-        case .sessions: "rectangle.grid.2x2"
-        case .tasks: "rectangle.split.3x1"
+        case .workspace: "rectangle.grid.2x2"
         case .projects: "folder"
+        case .tasks: "rectangle.split.3x1"
         }
+    }
+
+    /// Accepts the old name of the workspace too (debug scripts).
+    init?(name: String) {
+        self.init(rawValue: name == "sessions" ? "workspace" : name)
+    }
+
+    static var shortcutsHelp: String {
+        allCases.enumerated().map { "\($1.title) ⌥⌘\($0 + 1)" }.joined(separator: " · ")
     }
 }
 

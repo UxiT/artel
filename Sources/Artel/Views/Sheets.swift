@@ -219,6 +219,7 @@ struct ProjectSettingsSheet: View {
                               prompt: Text("текущая ветка репозитория"))
                 }
                 EditorSettingRow(editorPath: $project.editorPath)
+                DocsFolderRow(project: $project)
                 if project.isGitRepository {
                     Toggle("Хранить .artel/ в git", isOn: $project.storeArtelInGit)
                         .help("Выключено — .artel/ добавляется в .gitignore проекта")
@@ -231,9 +232,9 @@ struct ProjectSettingsSheet: View {
             }
             .formStyle(.grouped)
             HStack {
-                Button("Описание и спеки…") {
+                Button("Документация…") {
                     dismiss()
-                    model.openProjectDocs(project.id)
+                    model.openProjectDocs(project.id, path: nil)
                 }
                 Spacer()
                 Button("Отмена") { dismiss() }.keyboardShortcut(.cancelAction)
@@ -314,6 +315,37 @@ struct ColorSwatches: View {
                 .accessibilityLabel(ProjectPalette.name(i))
                 .accessibilityAddTraits(chosen ? .isSelected : [])
             }
+        }
+    }
+}
+
+/// Project settings: where the project's documentation lives. Stored in Artel's state only, never in the project.
+private struct DocsFolderRow: View {
+    @Binding var project: Project
+
+    var body: some View {
+        let detected = DocsSite.detect(root: project.url)
+        LabeledContent("Документация") {
+            HStack {
+                TextField("", text: Binding(get: { project.docsFolder ?? "" },
+                                            set: { project.docsFolder = $0.isEmpty ? nil : DocsSite.normalizeFolder($0, root: project.url) ?? project.docsFolder }),
+                          prompt: Text(detected.map { "\($0) (найдена)" } ?? "docs"))
+                    .font(.body.monospaced())
+                Button("Выбрать…") { choose() }
+            }
+        }
+        .help("Папка со страницами документации внутри проекта. Пусто — найти самой (docs/, documentation/, website/docs). Хранится только в настройках Artel на этом компьютере.")
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = project.url
+        panel.prompt = "Выбрать"
+        if panel.runModal() == .OK, let url = panel.url, let folder = DocsSite.normalizeFolder(url.path, root: project.url) {
+            project.docsFolder = folder
         }
     }
 }

@@ -1,5 +1,6 @@
 import ArtelCore
 import AppKit
+import WebKit
 
 /// Development aid: `ARTEL_SNAPSHOT=/path/shot.png` renders the main window to a PNG every few seconds.
 /// Uses the app's own view hierarchy, so it needs no screen-recording permission.
@@ -21,14 +22,49 @@ enum DebugSnapshot {
               let view = window.contentView?.superview ?? window.contentView,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
         view.cacheDisplay(in: view.bounds, to: rep)
-        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+        // Web views draw out of process and come out blank: snapshot each and paint it over its frame.
+        let webs = webViews(in: view)
+        guard !webs.isEmpty else {
+            try? rep.representation(using: .png, properties: [:])?.write(to: url)
+            return
+        }
+        var images: [(NSRect, NSImage)] = []
+        var left = webs.count
+        for web in webs {
+            let frame = web.convert(web.bounds, to: view)
+            web.takeSnapshot(with: nil) { image, _ in
+                MainActor.assumeIsolated {
+                    if let image { images.append((frame, image)) }
+                    left -= 1
+                    guard left == 0 else { return }
+                    NSGraphicsContext.saveGraphicsState()
+                    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+                    for (frame, image) in images {
+                        // The bitmap's origin is bottom-left; the view may be flipped.
+                        let y = view.isFlipped ? view.bounds.height - frame.maxY : frame.minY
+                        image.draw(in: NSRect(x: frame.minX, y: y, width: frame.width, height: frame.height))
+                    }
+                    NSGraphicsContext.restoreGraphicsState()
+                    try? rep.representation(using: .png, properties: [:])?.write(to: url)
+                }
+            }
+        }
+    }
+
+    @MainActor static func webViews(in view: NSView) -> [WKWebView] {
+        if let web = view as? WKWebView { return web.isHiddenOrHasHiddenAncestor ? [] : [web] }
+        return view.subviews.flatMap(webViews)
     }
 }
 
 /// Development aid: `ARTEL_DEBUG_SCRIPT='[{"launch":"ARTEL-1","model":"haiku"}, …]'`
 /// runs model actions after start-up, bypassing UI gestures (drag-and-drop can't be scripted from outside).
 /// Steps (one key each, plus parameters):
-///   wait: seconds · section: sessions|tasks|projects [doc: path] · select: task · launch: task [model, worktree, into (session index), clear]
+///   wait: seconds · section: workspace|projects|tasks [doc: path] · project: index — show its docs
+///   edit: bool [task, text] — the open page (or task text) in / out of the editor, optionally typing text
+///   files: bool — the project's file tree instead of its docs · docsSearch: query
+///   excalidraw: bool — download / remove Excalidraw's own exporter · webText — log what the previews rendered
+///   · select: task · launch: task [model, worktree, into (session index), clear]
 ///   resize: session index [columns, rows] — resize its card in grid cells · draggingTask: bool — show the new-session drop target
 ///   open: task · close · newTask: title — the task window with a new-task draft · createTask — create the open draft
 ///   closeTab · confirmCloseTab — request closing the selected tab, then confirm its confirmation dialog
@@ -92,7 +128,7 @@ enum DebugScript {
                 log("project \(p.name): auto = \(auto ?? "ask")")
             }
         }
-        if let section = (step["section"] as? String).flatMap(AppSection.init) {
+        if let section = (step["section"] as? String).flatMap(AppSection.init(name:)) {
             model.section = section
             if let doc = step["doc"] as? String { model.docsPath = doc }
             log("section \(section.rawValue)")
@@ -156,7 +192,49 @@ enum DebugScript {
         }
         if let title = step["newTask"] as? String { model.requestNewTask(title: title) }
         if step["createTask"] != nil, let draft = model.newTaskDraft { model.createTask(draft) }
-        if let preview = step["preview"] as? Bool { UserDefaults.standard.set(preview, forKey: MarkdownMode.key) }
+        if let edit = step["edit"] as? Bool, let id = model.docsProjectID, let project = model.project(id) {
+            // The open project page (or, with `task`, the open task's text) in or out of the editor.
+            let key: DocumentKey
+            if let t = task(model, step["task"]) { key = .task(t.id) } else if let path = model.docsPath { key = .projectFile(id, path) } else { return }
+            if edit {
+                let saved: String
+                if case .task(let tid) = key { saved = model.task(tid)?.body ?? "" } else {
+                    saved = (try? String(contentsOf: project.url.appendingPathComponent(model.docsPath ?? ""), encoding: .utf8)) ?? ""
+                }
+                model.beginEditing(key, saved: saved)
+                if let text = step["text"] as? String { model.updateDraft(key, text: text) }
+            } else {
+                model.finishEditing(key)
+            }
+            log("edit \(edit) \(key.raw)")
+        }
+        if step["webText"] != nil {
+            // What the markdown previews actually rendered (snapshots can't always show web views).
+            for window in NSApp.windows where window.isVisible {
+                for web in DebugSnapshot.webViews(in: window.contentView?.superview ?? window.contentView ?? NSView()) {
+                    let text = try? await web.evaluateJavaScript(
+                        "document.body.innerText + ' | svg=' + document.querySelectorAll('svg').length + ' katex=' + document.querySelectorAll('.katex').length + ' excalidraw-official=' + document.querySelectorAll('.excalidraw-official').length") as? String
+                    log("web text [\(window.title)] \(web.frame.size): \((text ?? "nil").replacingOccurrences(of: "\n", with: " ⏎ "))")
+                }
+            }
+        }
+        if let install = step["excalidraw"] as? Bool {
+            // Download (true) or remove (false) Excalidraw's own exporter, as the settings button does.
+            let addon = ExcalidrawAddon.shared
+            if install {
+                addon.install()
+                _ = await poll(timeout) { addon.state != .downloading }
+            } else {
+                addon.remove()
+            }
+            log("excalidraw addon: \(addon.state)")
+        }
+        if let files = step["files"] as? Bool { model.showsProjectFiles = files }
+        if let query = step["docsSearch"] as? String { model.docsSearch = query }
+        if let i = step["project"] as? Int, i < model.state.projects.count {
+            model.docsProjectID = model.state.projects[i].id
+            model.docsPath = nil
+        }
         if let which = step["front"] as? String {
             if let w = which == "task" ? model.taskWindow : model.mainWindow, w.isVisible { w.orderFrontRegardless() }
             log("front \(which)")

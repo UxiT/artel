@@ -86,6 +86,14 @@ private struct GeneralSettings: View {
                 Text("Значение по умолчанию для новых сессий; в окне новой сессии и в меню карточки его можно поменять. Архив — копии лога хуков и транскрипта агента в .artel/no-task/ проекта, хранится 7 дней. Без архива сессию нельзя будет открыть после закрытия или добавить на доску.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section {
+                ExcalidrawAddonRow()
+            } header: {
+                Text("Документация")
+            } footer: {
+                Text("Без него диаграммы .excalidraw рисует встроенный упрощённый рендерер. Официальный — экспорт самого Excalidraw (@excalidraw/utils \(ExcalidrawAddon.version), MIT) с его шрифтами, в том числе для кириллицы. Загружается один раз (~\(ExcalidrawAddon.sizeMB) МБ) с jsDelivr или unpkg, проверяется по контрольной сумме и хранится в папке данных Artel.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }
@@ -129,5 +137,49 @@ private struct NotificationSettingsView: View {
             .disabled(!model.state.settings.notifications.enabled)
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Download / remove Excalidraw's own exporter (ExcalidrawAddon).
+struct ExcalidrawAddonRow: View {
+    var compact = false
+    @State private var addon = ExcalidrawAddon.shared
+
+    var body: some View {
+        switch addon.state {
+        case .installed:
+            if compact {
+                EmptyView()
+            } else {
+                LabeledContent("Отрисовка Excalidraw") {
+                    HStack {
+                        Text("официальная").foregroundStyle(.secondary)
+                        Button("Удалить") { addon.remove() }
+                    }
+                }
+            }
+        case .downloading:
+            HStack(spacing: 6) {
+                if !compact { Text("Отрисовка Excalidraw"); Spacer() }
+                ProgressView().controlSize(.small)
+                Text("Загрузка…").foregroundStyle(.secondary)
+            }
+        case .notInstalled, .failed:
+            if compact {
+                Button("Точная отрисовка…") { addon.install() }
+                    .help("Загрузить официальный рендерер Excalidraw (~\(ExcalidrawAddon.sizeMB) МБ, один раз): шрифты и стили как в самом Excalidraw. Без него — упрощённая отрисовка.")
+            } else {
+                LabeledContent("Отрисовка Excalidraw") {
+                    HStack {
+                        if case .failed(let message) = addon.state {
+                            Text("Не загрузилось: \(message)").foregroundStyle(.red).lineLimit(2)
+                        } else {
+                            Text("встроенная").foregroundStyle(.secondary)
+                        }
+                        Button("Загрузить официальную (~\(ExcalidrawAddon.sizeMB) МБ)") { addon.install() }
+                    }
+                }
+            }
+        }
     }
 }

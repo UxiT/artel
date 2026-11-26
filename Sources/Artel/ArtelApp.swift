@@ -82,6 +82,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    /// Unsaved documents (task texts, documentation pages): save, drop or stay.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let model, !model.dirtyDocuments.isEmpty else { return .terminateNow }
+        let alert = NSAlert()
+        alert.messageText = "Сохранить изменения в документах (\(model.dirtyDocuments.count))?"
+        alert.informativeText = "Есть несохранённые правки в текстах задач или страницах документации."
+        alert.addButton(withTitle: "Сохранить")
+        alert.addButton(withTitle: "Не сохранять")
+        alert.addButton(withTitle: "Отмена")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: return model.saveAllDrafts() ? .terminateNow : .terminateCancel
+        case .alertSecondButtonReturn: return .terminateNow
+        default: return .terminateCancel
+        }
+    }
 }
 
 struct ArtelCommands: Commands {
@@ -121,7 +137,7 @@ struct ArtelCommands: Commands {
             Divider()
         }
         CommandMenu("Задачи") {
-            Button("Поиск задач") { model.request(focus: .search) }
+            Button("Поиск") { model.request(focus: .search) }
                 .keyboardShortcut("f")
             Button("Запустить выбранную задачу…") {
                 if let id = model.selectedTaskID { model.requestLaunch(taskID: id, intoSession: nil) }
@@ -138,7 +154,7 @@ struct ArtelCommands: Commands {
             .keyboardShortcut("s", modifiers: [.command, .option])
             .disabled(model.state.projects.isEmpty)
         }
-        CommandMenu("Сессии") {
+        CommandMenu("Workspace") {
             Button("Следующая, ждущая ответа") { model.focusNextAttention() }
                 .keyboardShortcut("j")
                 .disabled(model.attentionSessions.isEmpty)

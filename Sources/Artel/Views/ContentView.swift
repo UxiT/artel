@@ -69,9 +69,8 @@ struct ContentView: View {
         VStack(spacing: 0) {
             SetupBanner()
             switch model.section {
-            case .sessions:
-                WorkspaceView().searchable(text: $model.taskFilter.search, placement: .toolbar, prompt: "Поиск задач")
-                    .searchFocused($searchFocused)
+            case .workspace:
+                WorkspaceView()
             case .tasks:
                 TaskBoardView().searchable(text: $model.taskFilter.search, placement: .toolbar, prompt: "Поиск задач")
                     .searchFocused($searchFocused)
@@ -163,11 +162,13 @@ private struct MainToolbar: CustomizableToolbarContent {
             }
             .pickerStyle(.segmented)
             .labelStyle(.titleAndIcon)
-            .help("Сессии ⌥⌘1 · Задачи ⌥⌘2 · Проекты ⌥⌘3")
+            .help(AppSection.shortcutsHelp)
         }
         ToolbarItem(id: "filter", placement: .primaryAction) {
-            FilterMenu()
-                .disabled(model.section == .projects || model.state.projects.isEmpty)
+            if model.section == .tasks {
+                FilterMenu()
+                    .disabled(model.state.projects.isEmpty)
+            }
         }
         ToolbarItem(id: "projectActions", placement: .primaryAction) {
             ProjectToolbarActions()
@@ -197,6 +198,12 @@ private struct ProjectToolbarActions: View {
 
     var body: some View {
         if model.section == .projects, let id = model.docsProjectID, let project = model.project(id) {
+            @Bindable var model = model
+            Toggle(isOn: $model.showsProjectFiles) {
+                Label("Файлы", systemImage: "list.bullet.indent")
+            }
+            .toggleStyle(.button)
+            .help(model.showsProjectFiles ? "Вернуться к документации" : "Показать файлы проекта")
             ControlGroup {
                 Button { model.openInEditor(projectID: project.id, root: project.url) } label: {
                     Label("Открыть код", systemImage: "chevron.left.forwardslash.chevron.right")

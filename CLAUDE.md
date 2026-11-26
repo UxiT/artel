@@ -9,7 +9,7 @@ Artel is a native macOS 26+ (arm64) SwiftUI app for running several coding-agent
 Only Command Line Tools are installed — no Xcode. Everything goes through SwiftPM and the scripts:
 
 ```sh
-scripts/build-app.sh             # release → build/Artel.app (builds Artel, artel-hook, bundles tmux, ad-hoc signs)
+scripts/build-app.sh             # release → build/Artel.app (builds Artel, artel-hook, bundles tmux and the preview's JS, ad-hoc signs)
 scripts/build-app.sh debug       # debug build
 scripts/build-app.sh --install   # also copy to /Applications (needed for running sessions to pick up a new artel-hook)
 scripts/test.sh                  # unit tests (swift-testing); wraps `swift test` with CLT framework paths
@@ -21,15 +21,17 @@ scripts/release.sh 0.2.0 [--notes notes.md] [--dry-run]   # GitHub release + Spa
 Use `scripts/test.sh`, not bare `swift test` — under CLT the latter cannot find the Testing framework. Tests cover `ArtelCore` only; the app target has no tests.
 
 CLT constraints that matter when adding code or dependencies:
-- SwiftUI/Observation macros that need Xcode's plugin are unavailable: no `@Entry`, no `#Preview`. Dependencies that use them (e.g. Textual) won't build — that is why markdown preview uses MarkdownUI.
+- SwiftUI/Observation macros that need Xcode's plugin are unavailable: no `@Entry`, no `#Preview`. Dependencies that use them (e.g. Textual) won't build — that is why short read-only markdown (history entries, archive prompts) uses MarkdownUI; documents use the WKWebView preview.
 - The `Artel` target compiles in Swift 5 language mode; `ArtelCore`/`ArtelHook` use Swift 6. In Swift 5 mode prefer `NSRegularExpression` over Swift `Regex` literals (lookbehind / bare `/.../` literals don't work).
 
 ## Architecture
 
 Three SwiftPM targets:
-- `ArtelCore` — all testable logic: models (`Models.swift`, `TaskModel.swift`), tmux control, the agent launch command (`CodingAgent.swift`), hook event log and the session status state machine (`SessionActivity`/`SessionStatus.applying`), task storage, git worktrees and diff, prompt templates, project docs discovery, usage limits.
+- `ArtelCore` — all testable logic: models (`Models.swift`, `TaskModel.swift`), tmux control, the agent launch command (`CodingAgent.swift`), hook event log and the session status state machine (`SessionActivity`/`SessionStatus.applying`), task storage, git worktrees and diff, prompt templates, project docs discovery, the documentation site (`DocsSite.swift`: Docusaurus-style tree, frontmatter; `DocsLinks.swift`: link rewriting on move, search, link completion, agent prompts), usage limits.
 - `ArtelHook` (`artel-hook`) — hook handler for Claude Code and Kimi Code sessions. Must always exit 0 and print nothing; appends to `events/<session>.jsonl` and pings the app over a unix socket.
-- `Artel` — the SwiftUI app. `AppModel` (`@Observable`, split into `AppModel.swift`, `+Tasks`, `+NoTasks`, `+Workflow`) owns all state; views in `Sources/Artel/Views`.
+- `Artel` — the SwiftUI app. `AppModel` (`@Observable`, split into `AppModel.swift`, `+Tasks`, `+NoTasks`, `+Workflow`, `+Docs`) owns all state; views in `Sources/Artel/Views`.
+
+Sections, in toolbar order: Workspace (session grid; its sidebar ignores the task search and filters), Projects (documentation, `ProjectsView.swift`), Tasks (board). Markdown is always shown rendered (`MarkdownWebView`: WKWebView loading `Resources/DocsRenderer` through the `artel-res://local/{app,root}/` scheme; JS libraries come from `scripts/fetch-docs-web.sh` into `build/vendor/docs-web`, pinned by sha256, and are copied into the bundle by `build-app.sh`; a SwiftPM-only run reads them from the repo). "Редактировать" opens the STTextView source editor on a draft in `AppModel.markdownDrafts` (keyed by `DocumentKey`); saving is explicit, unsaved documents show a dot and are asked about on quit. The documentation folder of a project is `Project.docsFolder` in `state.json` (never written into the project), else `DocsSite.detect`. "Ask the agent" starts a no-task session in the project checkout with `DocsPrompt`. Excalidraw drawings use the built-in rough.js renderer (`Resources/DocsRenderer/excalidraw.js`) unless the operator downloaded Excalidraw's own exporter (`ExcalidrawAddon`: pinned `@excalidraw/utils` file, sha256-checked, in `AppPaths.root/renderers/`, served as `artel-res://local/ext/excalidraw.js` and imported lazily); it is not bundled because of its size.
 
 Session flow: the app starts an agent (`claude --settings <hooks> --session-id <id>` for Claude Code, `kimi` with hooks from `~/.kimi-code/config.toml` for Kimi Code) inside a private tmux server (`tmux -L artel`) and shows it via SwiftTerm. Hooks → `artel-hook` → `events/*.jsonl` is the source of truth for session status (replayed on launch); the socket is only for live updates. Sessions survive app quit; a missing tmux session is revived with the agent's resume command (`claude --resume` / `kimi --session`). Agents implement `CodingAgent` (`ClaudeCodeAgent`, `KimiCodeAgent`, registry `CodingAgents`); per-agent default models live in `AppSettings.defaultModels`, the default agent in `defaultAgentID`.
 
@@ -50,10 +52,10 @@ There is no way to drive the UI by gestures from outside, so verification uses b
 - `ARTEL_WORKTREES=<dir>` — worktree root override.
 - `ARTEL_UPDATE_FEED=<appcast URL>` — turns the updater on in an `ARTEL_HOME` instance and points it at that feed, to see the update dialog. Sparkle only takes http(s): serve a test appcast with `python3 -m http.server --bind 127.0.0.1`. Run a copy of the app with another `CFBundleIdentifier`, or Sparkle writes its state into the real app's defaults.
 - `ARTEL_SNAPSHOT=/path.png` — renders the main window (or the open sheet) to PNG every 3 s, no screen-recording permission needed. Vibrancy/toolbar glass renders as blank blobs — a known artifact, not a bug.
-- `ARTEL_DEBUG_SCRIPT='[{"section":"tasks"},{"open":"ARTEL-1"},{"preview":true},{"snapshot":"/path.png"}]'` — scripted actions after start-up (select, launch, setStatus, done, …); progress goes to `$ARTEL_DEBUG_LOG`.
+- `ARTEL_DEBUG_SCRIPT='[{"section":"projects"},{"project":0},{"doc":"docs/index.md"},{"edit":true},{"snapshot":"/path.png"}]'` — scripted actions after start-up (select, launch, setStatus, done, edit, files, docsSearch, webText …); progress goes to `$ARTEL_DEBUG_LOG`. Snapshots paint WKWebView content over its frame; `{"webText":true}` logs what the previews rendered. Glass buttons (`.glassProminent`) in a pane blank that pane in snapshots — an artifact.
 
 ## Constraints
 
 - Subscription limits are read from the existing Claude Code (Keychain) and Kimi Code (`~/.kimi-code/credentials/`) logins — read only, never write them. Never print or log OAuth tokens. The User-Agent stays generic (`Artel/<version>`); never put the user's email in requests.
 - Committing `.artel/` in user projects happens only on explicit operator action.
-- Artel is GPL-3.0 (forced by STTextView, which SwiftPM links statically). New dependencies must be GPL-3.0-compatible (MIT, BSD, ISC, Apache-2.0, LGPL…; not GPL-2.0-only or proprietary). `build-app.sh` copies every checkout's license into `Contents/Resources/Licenses/`; a bundled binary that doesn't come from SwiftPM (like tmux, libevent) needs its license copied there too.
+- Artel is GPL-3.0 (forced by STTextView, which SwiftPM links statically). New dependencies must be GPL-3.0-compatible (MIT, BSD, ISC, Apache-2.0, LGPL…; not GPL-2.0-only or proprietary). `build-app.sh` copies every checkout's license into `Contents/Resources/Licenses/`; a bundled binary or script that doesn't come from SwiftPM (tmux, libevent, the preview's JS libraries) needs its license copied there too (`build/vendor/licenses/`).

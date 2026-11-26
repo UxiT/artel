@@ -43,11 +43,11 @@ struct SidebarView: View {
                 let tasks = model.visibleTasks(of: project)
                 let loose = model.sessions(of: project).filter { $0.taskID == nil }
                 let archives = model.visibleNoTasks(of: project)
-                if model.taskFilter.projects.isEmpty || model.taskFilter.projects.contains(project.id) {
+                if model.sidebarFilter.projects.isEmpty || model.sidebarFilter.projects.contains(project.id) {
                     Section(isExpanded: expansion(project.id)) {
                         ForEach(tasks) { TaskRow(task: $0).tag(SidebarItem.task($0.id)) }
                         if tasks.isEmpty {
-                            Text(model.taskFilter.isDefault ? "Нет задач" : "Нет задач по фильтру")
+                            Text(model.sidebarFilter.isDefault ? "Нет задач" : "Нет задач по фильтру")
                                 .font(.caption).foregroundStyle(.tertiary)
                                 .selectionDisabled()
                         }
@@ -170,7 +170,8 @@ struct ProjectListSidebar: View {
         List(selection: Binding(get: { model.docsProjectID }, set: { id in
             guard id != model.docsProjectID else { return }
             model.docsProjectID = id
-            model.docsPath = ProjectDocs.claudeMD
+            model.docsPath = nil  // the project's docs home page
+            model.docsSearch = ""
         })) {
             Section("Проекты") {
                 ForEach(model.state.projects) { project in
@@ -354,7 +355,7 @@ struct ProjectHeader: View {
             Button("Новая сессия…") { model.newSessionRequest = NewSessionRequest(projectID: project.id) }
             Button("Закоммитить задачи (.artel)…") { model.requestCommit(projectID: project.id) }
             Button("Настройки проекта…") { model.projectSettingsID = project.id }
-            Button("Описание и спеки…") { model.openProjectDocs(project.id) }
+            Button("Документация…") { model.openProjectDocs(project.id, path: nil) }
             Button("Открыть в редакторе кода") { model.openInEditor(projectID: project.id, root: project.url) }
             Button("Показать в Finder") { NSWorkspace.shared.activateFileViewerSelecting([project.url]) }
             Divider()

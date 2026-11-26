@@ -16,6 +16,7 @@ for arg in "$@"; do
 done
 
 scripts/build-tmux.sh   # cached in build/vendor/tmux
+scripts/fetch-docs-web.sh   # markdown preview libraries, cached in build/vendor/docs-web
 swift build -c "$CONFIG" --arch arm64 --product Artel
 swift build -c "$CONFIG" --arch arm64 --product artel-hook
 BIN=$(swift build -c "$CONFIG" --arch arm64 --show-bin-path)
@@ -39,6 +40,10 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 ditto "$BIN/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Artel"
 [[ -f Resources/AppIcon.icns ]] && cp Resources/AppIcon.icns "$APP/Contents/Resources/"
+# Markdown preview: Artel's renderer page plus the fetched libraries under vendor/.
+ditto Resources/DocsRenderer "$APP/Contents/Resources/DocsRenderer"
+ditto build/vendor/docs-web "$APP/Contents/Resources/DocsRenderer/vendor"
+rm -f "$APP/Contents/Resources/DocsRenderer/vendor/.complete-"*
 # SwiftPM resource bundles of dependencies, if any.
 for b in "$BIN"/*.bundle(N); do cp -R "$b" "$APP/Contents/Resources/"; done
 # Licenses: Artel's own (GPL-3.0) and those of everything bundled in the app.

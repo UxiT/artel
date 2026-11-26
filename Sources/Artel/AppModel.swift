@@ -62,11 +62,24 @@ final class AppModel {
     private(set) var isBootstrapping = true
 
     // UI state
-    /// Top-level window section: sessions grid, task board, project docs.
-    var section: AppSection = .sessions
-    /// Projects section: selected project and document (relative path).
+    /// Top-level window section: the workspace (sessions grid), project docs, task board.
+    var section: AppSection = .workspace
+    /// Projects section: selected project and document (relative path; nil = the docs home page).
     var docsProjectID: UUID?
     var docsPath: String?
+    /// Projects section: the left panel shows the project's files instead of its documentation.
+    var showsProjectFiles = false
+    /// Search query of the documentation sidebar.
+    var docsSearch = ""
+    /// Markdown documents being edited (task texts, project pages), by `DocumentKey`. Saved explicitly.
+    var markdownDrafts: [String: MarkdownDraft] = [:]
+    /// Keys of `markdownDrafts` with unsaved changes (a separate set, so rows don't re-render on every keystroke).
+    var dirtyDocuments: Set<String> = []
+    /// Agent sessions started from a documentation page, by its document key.
+    var docsAgentSessions: [String: String] = [:]
+    var docsAgentRequest: DocsAgentRequest?
+    /// Bumped when the app writes a project document: the documentation tree reloads.
+    var docsVersion = 0
     /// Task shown in the task window (a separate, non-modal window).
     var openedTaskID: String?
     /// Archived session without a task shown in the same window.
@@ -432,7 +445,7 @@ final class AppModel {
             newSessionRequest = NewSessionRequest(projectID: focusedProjectID)
             return
         }
-        section = .sessions
+        section = .workspace
         startSession(project: project, name: nextSessionName(for: project), model: settings.model,
                      permissionMode: settings.permissionMode, prompt: nil, agentID: settings.agentID)
     }
@@ -443,12 +456,13 @@ final class AppModel {
         sessionToStop = record(id)
     }
 
+    @discardableResult
     func startSession(project: Project, name: String, model: String?, permissionMode: String, prompt: String?,
-                      agentID: String? = nil, archivesNoTask: Bool? = nil) {
+                      agentID: String? = nil, archivesNoTask: Bool? = nil) -> String? {
         let agentID = agentID ?? state.settings.effectiveDefaultAgentID
         guard tmux != nil, agentPath(for: agentID) != nil else {
             errorMessage = "Сначала установите tmux и \(CodingAgents.agent(forID: agentID).displayName)."
-            return
+            return nil
         }
         state.lastSessionSettings = SessionLaunchSettings(projectID: project.id, agentID: agentID,
                                                           model: model, permissionMode: permissionMode)
@@ -462,6 +476,7 @@ final class AppModel {
         statuses[record.id] = SessionStatus(activity: .starting)
         launch(self.record(record.id) ?? record, resume: false, prompt: prompt)
         focusedSessionID = record.id
+        return record.id
     }
 
     /// Starts the agent again for a session whose process is gone: resume when possible, else fresh.
@@ -648,7 +663,7 @@ final class AppModel {
     func focus(_ id: String, activate: Bool = false, takeKeyboard: Bool = true) {
         guard let record = record(id) else { return }
         if activate { NSApp.activate(ignoringOtherApps: true) }
-        section = .sessions
+        section = .workspace
         // The task window is not modal: it stays open, the main window comes forward.
         if let mainWindow, !mainWindow.isKeyWindow { mainWindow.makeKeyAndOrderFront(nil) }
         if let tab = record.tabID, tab != state.selectedTabID { state.selectedTabID = tab }

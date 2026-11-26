@@ -124,6 +124,7 @@ extension AppModel {
     }
 
     func visibleNoTasks(of project: Project) -> [ArtelTask] {
+        let taskFilter = sidebarFilter
         guard taskFilter.projects.isEmpty || taskFilter.projects.contains(project.id) else { return [] }
         let query = taskFilter.search.trimmingCharacters(in: .whitespaces)
         return noTasks.filter { archive in

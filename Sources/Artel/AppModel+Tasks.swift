@@ -38,7 +38,7 @@ struct CommitRequest: Identifiable {
 }
 
 enum FocusRequest: Equatable {
-    case search
+    case search, docsSearch
 }
 
 /// Drag payloads are plain strings; tasks are prefixed to tell them from session ids.
@@ -153,8 +153,13 @@ extension AppModel {
     }
 
     /// ⌘F: the task list lives in the sidebar (sessions) or on the board; the projects section has neither.
+    /// ⌘F: the documentation search in the projects section, the task search elsewhere.
     func request(focus: FocusRequest) {
-        if section == .projects { section = .tasks }
+        if section == .projects && !showsProjectFiles {
+            focusRequest = .docsSearch
+            return
+        }
+        if section != .tasks { section = .tasks }
         focusRequest = focus
     }
 
@@ -175,7 +180,11 @@ extension AppModel {
     }
 
     /// Tasks of a project after filtering, sorted by status, then most recently changed.
+    /// The filter of the sidebar: the task board's search and filters, none in the workspace.
+    var sidebarFilter: TaskFilter { section == .workspace ? TaskFilter() : taskFilter }
+
     func visibleTasks(of project: Project) -> [ArtelTask] {
+        let taskFilter = sidebarFilter
         guard taskFilter.projects.isEmpty || taskFilter.projects.contains(project.id) else { return [] }
         return tasks.filter { $0.projectID == project.id && taskFilter.matches($0) }.sorted { a, b in
             if a.status.sortRank != b.status.sortRank { return a.status.sortRank < b.status.sortRank }
@@ -357,6 +366,8 @@ extension AppModel {
     /// Confirmed launch: (worktree) → task.md update → session (new, continued or restarted in place).
     /// A task runs in the project checkout unless it asks for — or already has — its own worktree.
     func launch(_ request: TaskLaunchRequest, model: String?, saveModel: Bool, clearContext: Bool, useWorktree: Bool) {
+        // The prompt is the task text: unsaved edits go in with it.
+        guard saveDraft(.task(request.taskID)) else { return }
         guard var task = task(request.taskID), let project = project(task.projectID) else { return }
         let wantsWorktree = useWorktree || task.worktree != nil
         if wantsWorktree && git == nil {
