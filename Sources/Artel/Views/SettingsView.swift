@@ -78,6 +78,14 @@ private struct GeneralSettings: View {
             Section("Сетка сессий") {
                 Toggle("Ждущие ответа — первыми в сетке", isOn: $model.state.settings.waitingFirst)
             }
+            Section {
+                Toggle("Сохранять сессии без задачи в архив", isOn: $model.state.settings.archiveNoTaskSessions)
+            } header: {
+                Text("Сессии без задачи")
+            } footer: {
+                Text("Значение по умолчанию для новых сессий; в окне новой сессии и в меню карточки его можно поменять. Архив — копии лога хуков и транскрипта агента в .artel/no-task/ проекта, хранится 7 дней. Без архива сессию нельзя будет открыть после закрытия или добавить на доску.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }

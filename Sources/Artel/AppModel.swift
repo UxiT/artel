@@ -444,7 +444,7 @@ final class AppModel {
     }
 
     func startSession(project: Project, name: String, model: String?, permissionMode: String, prompt: String?,
-                      agentID: String? = nil) {
+                      agentID: String? = nil, archivesNoTask: Bool? = nil) {
         let agentID = agentID ?? state.settings.effectiveDefaultAgentID
         guard tmux != nil, agentPath(for: agentID) != nil else {
             errorMessage = "Сначала установите tmux и \(CodingAgents.agent(forID: agentID).displayName)."
@@ -455,6 +455,7 @@ final class AppModel {
         var record = SessionRecord(name: name, projectID: project.id, cwd: project.path, agentID: agentID,
                                    model: model, permissionMode: permissionMode, tabID: selectedTabID)
         record.conversationID = UUID().uuidString.lowercased()
+        record.archivesNoTask = archivesNoTask ?? state.settings.archiveNoTaskSessions
         state.sessions.append(record)
         archiveSession(record, prompt: prompt)
         saveNow()  // a running tmux session must never be unknown to the state file

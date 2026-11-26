@@ -43,6 +43,10 @@ extension AppModel {
             return
         }
         guard let project = project(record.projectID) else { return }
+        guard record.archivesNoTask else {
+            titleFromFirstPrompt(record, prompt: prompt)
+            return
+        }
         let existing = noTask(sessionID: record.id)
         let needsPrompt = existing.map { $0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? true
         let firstPrompt = needsPrompt ? (prompt ?? EventLog.read(sessionID: record.id).first {
@@ -68,6 +72,27 @@ extension AppModel {
         } catch {
             errorMessage = "Не удалось сохранить архив сессии: \(error.localizedDescription)"
         }
+    }
+
+    /// Without an archive the first prompt still names the session; later prompts don't rename it.
+    private func titleFromFirstPrompt(_ record: SessionRecord, prompt: String?) {
+        guard let prompt = prompt?.trimmingCharacters(in: .whitespacesAndNewlines), !prompt.isEmpty else { return }
+        let first = EventLog.read(sessionID: record.id).first {
+            $0.name == "UserPromptSubmit" && !($0.prompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        }?.prompt?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard first == nil || first == prompt, let title = NoTaskStore.title(from: prompt),
+              var current = self.record(record.id), current.name != title else { return }
+        current.name = title
+        replace(current)
+    }
+
+    /// Turns the no-task archive of a live session on or off. Turning it on snapshots what is there right away;
+    /// turning it off keeps the archive written so far (it expires as usual).
+    func setArchivesNoTask(_ enabled: Bool, sessionID: String) {
+        guard var record = record(sessionID), record.archivesNoTask != enabled else { return }
+        record.archivesNoTask = enabled
+        replace(record)
+        if enabled { archiveSession(record, captureTranscript: true) }
     }
 
     /// Adds an archived session to the board as a closed task, preserving all files.

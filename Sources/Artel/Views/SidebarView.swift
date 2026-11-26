@@ -447,8 +447,13 @@ struct SessionMenu: View {
                 Button("Сбросить размер") { model.resize(session: record.id, columnSpan: 1, rowSpan: 1) }
             }
         }
-        if record.taskID == nil, model.noTask(sessionID: record.id) != nil {
-            Button("Добавить на доску как задачу") { model.convertNoTask(sessionID: record.id) }
+        if record.taskID == nil {
+            Toggle("Сохранять в архив", isOn: Binding(
+                get: { model.record(record.id)?.archivesNoTask ?? record.archivesNoTask },
+                set: { model.setArchivesNoTask($0, sessionID: record.id) }))
+            if model.noTask(sessionID: record.id) != nil {
+                Button("Добавить на доску как задачу") { model.convertNoTask(sessionID: record.id) }
+            }
         }
         if model.state.tabs.count > 1 {
             Menu("Переместить во вкладку") {

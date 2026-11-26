@@ -91,6 +91,7 @@ struct NewSessionSheet: View {
     @State private var customModel = ""
     @State private var permissionMode = "auto"
     @State private var prompt = ""
+    @State private var archivesNoTask = true
 
     private let customTag = "__custom__"
 
@@ -123,6 +124,8 @@ struct NewSessionSheet: View {
                 Picker("Разрешения", selection: $permissionMode) {
                     ForEach(agent.permissionModes, id: \.self) { Text($0).tag($0) }
                 }
+                Toggle("Сохранять в архив сессий без задачи", isOn: $archivesNoTask)
+                    .help("Копии лога хуков и транскрипта агента в .artel/no-task/ — чтобы потом посмотреть сессию или добавить её на доску. Хранятся 7 дней.")
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
@@ -145,6 +148,7 @@ struct NewSessionSheet: View {
         .onAppear {
             projectID = request.projectID ?? model.state.projects.first?.id
             agentID = model.state.settings.effectiveDefaultAgentID
+            archivesNoTask = model.state.settings.archiveNoTaskSessions
             applyProjectDefaults()
         }
         .onChange(of: projectID) { _, _ in applyProjectDefaults() }
@@ -182,7 +186,8 @@ struct NewSessionSheet: View {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         model.startSession(project: p, name: trimmedName.isEmpty ? model.nextSessionName(for: p) : trimmedName,
                            model: chosen, permissionMode: permissionMode,
-                           prompt: prompt.trimmingCharacters(in: .whitespacesAndNewlines), agentID: agentID)
+                           prompt: prompt.trimmingCharacters(in: .whitespacesAndNewlines), agentID: agentID,
+                           archivesNoTask: archivesNoTask)
         dismiss()
     }
 }

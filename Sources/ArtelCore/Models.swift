@@ -71,6 +71,8 @@ public struct SessionRecord: Codable, Identifiable, Equatable, Hashable, Sendabl
     public var conversationID: String?
     /// Task this session works on (task id inside `projectID`), if any.
     public var taskID: String?
+    /// Without a task: keep the archive in `.artel/no-task/` (events and transcript copies).
+    public var archivesNoTask: Bool = true
 
     public init(id: String = SessionRecord.newID(), name: String, projectID: UUID, cwd: String,
                 agentID: String = ClaudeCodeAgent.id, model: String?, permissionMode: String,
@@ -109,6 +111,7 @@ public struct SessionRecord: Codable, Identifiable, Equatable, Hashable, Sendabl
         exited = try c.decodeIfPresent(Bool.self, forKey: .exited) ?? false
         conversationID = try c.decodeIfPresent(String.self, forKey: .conversationID)
         taskID = try c.decodeIfPresent(String.self, forKey: .taskID)
+        archivesNoTask = try c.decodeIfPresent(Bool.self, forKey: .archivesNoTask) ?? true
     }
 
     public static func newID() -> String {
@@ -178,6 +181,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var notifications = NotificationSettings()
     /// Move sessions that need the operator to the front of the grid.
     public var waitingFirst = false
+    /// Default for new sessions without a task: archive them in `.artel/no-task/`.
+    public var archiveNoTaskSessions = true
     public var limits = LimitSettings()
     /// Fonts of the text areas (terminal, editor, preview, code).
     public var fonts = FontSettings()
@@ -199,6 +204,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         defaultModels = try c.decodeIfPresent([String: String].self, forKey: .defaultModels) ?? [:]
         notifications = try c.decodeIfPresent(NotificationSettings.self, forKey: .notifications) ?? NotificationSettings()
         waitingFirst = try c.decodeIfPresent(Bool.self, forKey: .waitingFirst) ?? false
+        archiveNoTaskSessions = try c.decodeIfPresent(Bool.self, forKey: .archiveNoTaskSessions) ?? true
         limits = try c.decodeIfPresent(LimitSettings.self, forKey: .limits) ?? LimitSettings()
         fonts = try c.decodeIfPresent(FontSettings.self, forKey: .fonts) ?? FontSettings()
         taskTemplate = try c.decodeIfPresent(String.self, forKey: .taskTemplate)
@@ -222,6 +228,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         try c.encode(defaultModels, forKey: .defaultModels)
         try c.encode(notifications, forKey: .notifications)
         try c.encode(waitingFirst, forKey: .waitingFirst)
+        try c.encode(archiveNoTaskSessions, forKey: .archiveNoTaskSessions)
         try c.encode(limits, forKey: .limits)
         try c.encode(fonts, forKey: .fonts)
         try c.encodeIfPresent(taskTemplate, forKey: .taskTemplate)
@@ -230,7 +237,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case claudePath, kimiPath, tmuxPath, preferBundledTmux, defaultAgentID, disabledAgents, defaultModels
-        case notifications, waitingFirst, limits, fonts, taskTemplate, promptFrame
+        case notifications, waitingFirst, archiveNoTaskSessions, limits, fonts, taskTemplate, promptFrame
         /// Legacy single model field (Claude Code); migrated into `defaultModels` on decode.
         case defaultModel
     }

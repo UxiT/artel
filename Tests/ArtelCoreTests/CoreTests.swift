@@ -336,6 +336,22 @@ private func fold(_ events: [HookEvent]) -> SessionStatus {
         #expect(legacy.columnSpan == 1 && legacy.rowSpan == 1)
     }
 
+    @Test func noTaskArchiveSwitchPersistsAndDefaultsOn() throws {
+        var record = SessionRecord(name: "Test", projectID: UUID(), cwd: "/tmp", model: nil, permissionMode: "auto")
+        #expect(record.archivesNoTask)
+        record.archivesNoTask = false
+        var state = AppState()
+        state.sessions = [record]
+        state.settings.archiveNoTaskSessions = false
+        let decoded = try JSONDecoder.artel.decode(AppState.self, from: JSONEncoder.artel.encode(state))
+        #expect(!decoded.sessions[0].archivesNoTask)
+        #expect(!decoded.settings.archiveNoTaskSessions)
+
+        let legacy = try JSONDecoder.artel.decode(AppState.self, from: Data(#"{"settings":{},"sessions":[{"id":"s","name":"Test","projectID":"\#(record.projectID.uuidString)","cwd":"/tmp"}]}"#.utf8))
+        #expect(legacy.settings.archiveNoTaskSessions)
+        #expect(legacy.sessions[0].archivesNoTask)
+    }
+
     @Test func persistedStateToleratesMissingKeys() throws {
         let state = try JSONDecoder.artel.decode(AppState.self, from: Data(#"{"settings":{"waitingFirst":true}}"#.utf8))
         #expect(state.settings.waitingFirst)
