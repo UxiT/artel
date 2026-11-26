@@ -130,7 +130,7 @@
   }
 
   function render(scene) {
-    if (!scene || !Array.isArray(scene.elements)) throw new Error('это не сцена Excalidraw');
+    if (!scene || !Array.isArray(scene.elements)) throw new Error('not an Excalidraw scene');
     const elements = scene.elements.filter((e) => !e.isDeleted);
     const files = scene.files || {};
     const pad = 16;

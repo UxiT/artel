@@ -35,10 +35,10 @@ public enum ClaudeUsage {
     public static let keychainService = "Claude Code-credentials"
 
     static let buckets: [(key: String, id: String, label: String, short: String)] = [
-        ("five_hour", "session", "5 часов", "5ч"),
-        ("seven_day", "weekly", "Неделя · все модели", "7д"),
-        ("seven_day_opus", "weekly-opus", "Неделя · Opus", "Opus"),
-        ("seven_day_sonnet", "weekly-sonnet", "Неделя · Sonnet", "Sonnet"),
+        ("five_hour", "session", "5 hours", "5h"),
+        ("seven_day", "weekly", "Week · all models", "7d"),
+        ("seven_day_opus", "weekly-opus", "Week · Opus", "Opus"),
+        ("seven_day_sonnet", "weekly-sonnet", "Week · Sonnet", "Sonnet"),
     ]
 
     public static func parseUsage(_ data: Data) throws -> [LimitWindow] {
@@ -126,9 +126,9 @@ public enum KimiUsage {
     public static let defaultBaseURL = URL(string: "https://api.kimi.com/coding/v1")!
 
     static let buckets: [(key: String, id: String, label: String, short: String)] = [
-        ("limit_5h", "session", "5 часов", "5ч"),
-        ("limit_7d", "weekly", "Неделя", "7д"),
-        ("limit_month_total", "monthly", "Месяц · всего", "Мес."),
+        ("limit_5h", "session", "5 hours", "5h"),
+        ("limit_7d", "weekly", "Week", "7d"),
+        ("limit_month_total", "monthly", "Month · total", "Mo"),
     ]
 
     public static func usageURL(baseURL: URL) -> URL {
@@ -255,7 +255,7 @@ public enum Backoff {
 public func formatDuration(_ seconds: TimeInterval) -> String {
     let s = max(0, Int(seconds))
     let d = s / 86400, h = s % 86400 / 3600, m = s % 3600 / 60
-    if d > 0 { return "\(d) д \(h) ч" }
-    if h > 0 { return "\(h) ч \(m) мин" }
-    return "\(m) мин"
+    if d > 0 { return "\(d)d \(h)h" }
+    if h > 0 { return "\(h)h \(m)m" }
+    return "\(m)m"
 }

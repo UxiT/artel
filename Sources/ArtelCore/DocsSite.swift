@@ -100,7 +100,8 @@ public enum DocsSite {
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: url.path, isDirectory: &isDir) else { continue }
             if isDir.boolValue {
-                if name == "node_modules" { continue }
+                // Asset folders hold images and embedded drawings, not pages of their own.
+                if name == "node_modules" || name == "assets" { continue }
                 let kids = children(of: url, rel: path, depth: depth + 1)
                 let category = Category.read(dir: url)
                 let index = indexPage(in: url, rel: path, folderName: name)
@@ -243,6 +244,27 @@ public enum DocsSite {
 
     public static func newPageText(title: String) -> String { "# \(title)\n\n" }
 
+    /// An empty `.excalidraw` scene, as Excalidraw itself saves one.
+    public static let emptyDrawing = """
+    {
+      "type": "excalidraw",
+      "version": 2,
+      "source": "artel",
+      "elements": [],
+      "appState": {
+        "gridSize": null,
+        "viewBackgroundColor": "#ffffff"
+      },
+      "files": {}
+    }
+
+    """
+
+    /// A path for a new drawing in `folder`: `<slug>.excalidraw`, numbered if taken.
+    public static func newDrawingPath(title: String, folder: String, root: URL) -> String {
+        unique(folder: folder, base: slug(title), ext: diagramExtension, root: root)
+    }
+
     /// Content of `index.md` for a freshly created documentation folder.
     public static func welcomePage(projectName: String) -> String {
         """
@@ -252,13 +274,13 @@ public enum DocsSite {
 
         # \(projectName)
 
-        Документация проекта. Страницы — markdown-файлы этой папки, разделы — вложенные папки.
-        Порядок в боковой панели задаёт `sidebar_position` в начале страницы, подпись раздела — `_category_.json`.
+        Project documentation. Pages are the markdown files of this folder, sections are subfolders.
+        The sidebar order comes from `sidebar_position` at the top of a page, a section's label from `_category_.json`.
 
         ```mermaid
         flowchart LR
-          Оператор -->|пишет| Документация
-          Агент -->|дополняет| Документация
+          You -->|write| Docs
+          Agent -->|extends| Docs
         ```
 
         """

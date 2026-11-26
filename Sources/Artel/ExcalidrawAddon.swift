@@ -3,26 +3,31 @@ import CryptoKit
 import Foundation
 import Observation
 
-/// Optional exact rendering of `.excalidraw` drawings with Excalidraw's own exporter (`@excalidraw/utils`, MIT).
-/// It is one ~20 MB ES module (fonts inlined, Cyrillic and CJK included), so it isn't shipped with the app:
-/// the operator downloads it on demand into Application Support. The pinned file is checked by sha256;
-/// without it the preview draws diagrams with Artel's own rough.js renderer.
+/// Optional Excalidraw for the documentation: the editor (draw `.excalidraw` files inside Artel) and Excalidraw's
+/// own SVG export for the preview. It is React + `@excalidraw/excalidraw` (MIT) with Excalidraw's fonts, built by
+/// `scripts/build-excalidraw-editor.sh` into one zip (~15 MB) and published as a GitHub release of Artel — too big
+/// to ship in the app, so the operator downloads it on demand. The zip is checked against the sha256 compiled in
+/// and unpacked into Application Support. Without it, drawings are shown by the built-in rough.js renderer and
+/// can't be edited in Artel.
+///
+/// `ARTEL_EXCALIDRAW_BUNDLE=<zip>` installs a local build instead (development; the hash isn't checked).
 @MainActor @Observable
 final class ExcalidrawAddon {
     static let shared = ExcalidrawAddon()
 
-    nonisolated static let version = "0.1.8"
-    nonisolated static let sha256 = "d859cee50c6148ba53192da5454d48d8370ced75449a678b6baefc293c29fe6e"
-    static let sizeMB = 20
-    /// The same file on two CDNs (both mirror npm); the hash decides.
-    nonisolated static let sources = [
-        "https://cdn.jsdelivr.net/npm/@excalidraw/utils@\(version)/dist/prod/index.js",
-        "https://unpkg.com/@excalidraw/utils@\(version)/dist/prod/index.js",
-    ]
+    /// `<@excalidraw/excalidraw version>-<bundle revision>`, as printed by the build script.
+    nonisolated static let version = "0.18.1-1"
+    nonisolated static let sha256 = "4fb2331579641599464c41c7656fb9d58d1d96586f5684cb968795de88de3078"
+    static let sizeMB = 15
+    nonisolated static let source = URL(
+        string: "https://github.com/UxiT/artel/releases/download/excalidraw-\(version)/excalidraw-\(version).zip")!
 
-    nonisolated static var file: URL {
-        AppPaths.root.appendingPathComponent("renderers/excalidraw-utils-\(version)/index.js")
+    nonisolated static var directory: URL {
+        AppPaths.root.appendingPathComponent("renderers/excalidraw-\(version)", isDirectory: true)
     }
+
+    /// The module the preview and the editor import.
+    nonisolated static var entry: URL { directory.appendingPathComponent("entry.js") }
 
     enum State: Equatable {
         case notInstalled, downloading, installed
@@ -34,7 +39,7 @@ final class ExcalidrawAddon {
     private(set) var revision = 0
 
     private init() {
-        state = FileManager.default.fileExists(atPath: Self.file.path) ? .installed : .notInstalled
+        state = FileManager.default.fileExists(atPath: Self.entry.path) ? .installed : .notInstalled
     }
 
     var isInstalled: Bool { state == .installed }
@@ -44,10 +49,8 @@ final class ExcalidrawAddon {
         state = .downloading
         Task {
             do {
-                let data = try await Self.download()
-                let dir = Self.file.deletingLastPathComponent()
-                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                try data.write(to: Self.file, options: .atomic)
+                let zip = try await Self.fetchZip()
+                try await Self.unpack(zip)
                 state = .installed
                 revision += 1
             } catch {
@@ -57,30 +60,51 @@ final class ExcalidrawAddon {
     }
 
     func remove() {
-        try? FileManager.default.removeItem(at: Self.file.deletingLastPathComponent())
+        try? FileManager.default.removeItem(at: Self.directory)
         state = .notInstalled
         revision += 1
     }
 
-    private nonisolated static func download() async throws -> Data {
-        var lastError: Error = URLError(.cannotFindHost)
-        for source in sources {
-            guard let url = URL(string: source) else { continue }
-            var request = URLRequest(url: url, timeoutInterval: 120)
-            request.setValue("Artel/\(Bundle.main.shortVersion)", forHTTPHeaderField: "User-Agent")
-            do {
-                let (data, response) = try await URLSession.shared.data(for: request)
-                guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
-                let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-                guard hash == sha256 else {
-                    throw NSError(domain: "Artel", code: 1, userInfo: [NSLocalizedDescriptionKey: "Контрольная сумма не совпала"])
-                }
-                return data
-            } catch {
-                lastError = error
-            }
+    /// The zip on disk: the local override, or the release asset, verified.
+    private nonisolated static func fetchZip() async throws -> URL {
+        if let local = ProcessInfo.processInfo.environment["ARTEL_EXCALIDRAW_BUNDLE"], !local.isEmpty {
+            return URL(fileURLWithPath: local)
         }
-        throw lastError
+        var request = URLRequest(url: source, timeoutInterval: 300)
+        request.setValue("Artel/\(Bundle.main.shortVersion)", forHTTPHeaderField: "User-Agent")
+        let (file, response) = try await URLSession.shared.download(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw NSError(domain: "Artel", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                "The download isn't available (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))"])
+        }
+        let data = try Data(contentsOf: file, options: .mappedIfSafe)
+        let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard hash == sha256 else {
+            throw NSError(domain: "Artel", code: 2, userInfo: [NSLocalizedDescriptionKey: "Checksum mismatch"])
+        }
+        return file
+    }
+
+    /// Unpacks into a fresh folder next to the target, then swaps it in; older versions are removed.
+    private nonisolated static func unpack(_ zip: URL) async throws {
+        let fm = FileManager.default
+        let parent = directory.deletingLastPathComponent()
+        try fm.createDirectory(at: parent, withIntermediateDirectories: true)
+        let staging = parent.appendingPathComponent(".excalidraw-\(UUID().uuidString)", isDirectory: true)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        process.arguments = ["-x", "-k", zip.path, staging.path]
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0, fm.fileExists(atPath: staging.appendingPathComponent("entry.js").path) else {
+            try? fm.removeItem(at: staging)
+            throw NSError(domain: "Artel", code: 3, userInfo: [NSLocalizedDescriptionKey: "The archive is damaged"])
+        }
+        for old in (try? fm.contentsOfDirectory(at: parent, includingPropertiesForKeys: nil)) ?? []
+        where old.lastPathComponent.hasPrefix("excalidraw") {
+            try? fm.removeItem(at: old)
+        }
+        try fm.moveItem(at: staging, to: directory)
     }
 }
 

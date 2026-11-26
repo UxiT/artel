@@ -38,20 +38,20 @@ public enum PromptTemplate {
 
     /// Placeholders available in the prompt frame, with descriptions for the settings screen.
     public static let frameKeys: [(key: String, description: String)] = [
-        ("task_id", "id задачи, например ARTEL-12"),
-        ("title", "заголовок задачи"),
-        ("project", "имя проекта"),
-        ("worktree", "путь к worktree задачи (пусто, если задача идёт в проекте)"),
-        ("branch", "ветка worktree задачи"),
-        ("task_dir", "папка задачи (task.md, attachments/)"),
-        ("task_body", "текст задачи"),
+        ("task_id", "task id, e.g. ARTEL-12"),
+        ("title", "task title"),
+        ("project", "project name"),
+        ("worktree", "path to the task's worktree (empty when the task runs in the project)"),
+        ("branch", "branch of the task's worktree"),
+        ("task_dir", "task folder (task.md, attachments/)"),
+        ("task_body", "task text"),
     ]
 
     /// Default frame; reproduces Artel's built-in prompt.
     public static let defaultFrame = """
-    Задача {{task_id}} «{{title}}» проекта {{project}}.
-    {{#worktree}}Рабочая директория — git worktree задачи ({{worktree}}, ветка {{branch}}). Код меняй только здесь.{{/worktree}}
-    Файлы задачи (вложения) лежат в {{task_dir}}; task.md не правь.
+    Task {{task_id}} "{{title}}" of project {{project}}.
+    {{#worktree}}The working directory is the task's git worktree ({{worktree}}, branch {{branch}}). Change code only here.{{/worktree}}
+    The task's files (attachments) are in {{task_dir}}; don't edit task.md.
 
     {{task_body}}
     """

@@ -42,16 +42,16 @@ struct TabBar: View {
                 ForEach(model.state.tabs) { tab in
                     TabButton(tab: tab, renaming: $renaming, draft: $draft)
                 }
-                Button { model.addTab() } label: { Label("Новая вкладка", systemImage: "plus").labelStyle(.iconOnly) }
+                Button { model.addTab() } label: { Label("New Tab", systemImage: "plus").labelStyle(.iconOnly) }
                     .buttonStyle(.borderless)
-                    .help("Новая вкладка (⌥⌘T)")
+                    .help("New tab (⌥⌘T)")
                     .padding(.horizontal, 6)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Вкладки рабочей области")
+        .accessibilityLabel("Workspace tabs")
     }
 }
 
@@ -70,7 +70,7 @@ private struct TabButton: View {
         let closable = model.state.tabs.count > 1
         HStack(spacing: 6) {
             if renaming == tab.id {
-                TextField("Название вкладки", text: $draft)
+                TextField("Tab Name", text: $draft)
                     .textFieldStyle(.plain)
                     .frame(width: 120)
                     .focused($fieldFocused)
@@ -97,17 +97,17 @@ private struct TabButton: View {
                 .buttonStyle(.plain)
                 .simultaneousGesture(TapGesture(count: 2).onEnded { startRenaming() })
                 .accessibilityLabel(tab.title)
-                .accessibilityValue("сессий: \(sessions.count)\(waiting > 0 ? ", ждут ответа: \(waiting)" : "")")
+                .accessibilityValue("sessions: \(sessions.count)\(waiting > 0 ? ", waiting for you: \(waiting)" : "")")
                 .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityAction(named: "Переименовать") { startRenaming() }
+                .accessibilityAction(named: "Rename") { startRenaming() }
             }
             if closable {
                 Button { model.requestCloseTab(tab.id) } label: {
-                    Label("Закрыть вкладку", systemImage: "xmark").labelStyle(.iconOnly).font(.caption)
+                    Label("Close Tab", systemImage: "xmark").labelStyle(.iconOnly).font(.caption)
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
-                .help("Закрыть вкладку")
+                .help("Close tab")
                 .focusable(false)
                 .opacity(hovering || selected ? 1 : 0)
                 .accessibilityHidden(!(hovering || selected))
@@ -125,8 +125,8 @@ private struct TabButton: View {
             return true
         }
         .contextMenu {
-            Button("Переименовать") { startRenaming() }
-            Button("Закрыть вкладку", role: .destructive) { model.requestCloseTab(tab.id) }
+            Button("Rename") { startRenaming() }
+            Button("Close Tab", role: .destructive) { model.requestCloseTab(tab.id) }
                 .disabled(!closable)
         }
     }
@@ -156,8 +156,8 @@ struct SessionGrid: View {
                 if model.isDraggingTask {
                     NewSessionTile().padding(spacing)
                 } else {
-                    ContentUnavailableView("Нет сессий", systemImage: "rectangle.on.rectangle",
-                                           description: Text("Создайте сессию кнопкой в тулбаре или перетащите задачу сюда."))
+                    ContentUnavailableView("No Sessions", systemImage: "rectangle.on.rectangle",
+                                           description: Text("Create a session with the toolbar button or drag a task here."))
                 }
             } else {
                 let reserved = model.isDraggingTask ? plusWidth + spacing * 3 : spacing * 2
@@ -209,7 +209,7 @@ private struct ResizableSessionCard: View {
             .offset(x: layout.x(for: placement), y: layout.y(for: placement))
             .id(record.id)
             .overlay(alignment: .trailing) {
-                SessionResizeHandle(cursor: .resizeLeftRight, help: "Изменить ширину окна") {
+                SessionResizeHandle(cursor: .resizeLeftRight, help: "Resize width") {
                     resize($0, horizontally: true, vertically: false)
                 } onEnded: {
                     dragStart = nil
@@ -217,7 +217,7 @@ private struct ResizableSessionCard: View {
                 .frame(width: 14)
             }
             .overlay(alignment: .bottom) {
-                SessionResizeHandle(cursor: .resizeUpDown, help: "Изменить высоту окна") {
+                SessionResizeHandle(cursor: .resizeUpDown, help: "Resize height") {
                     resize($0, horizontally: false, vertically: true)
                 } onEnded: {
                     dragStart = nil
@@ -225,7 +225,7 @@ private struct ResizableSessionCard: View {
                 .frame(height: 14)
             }
             .overlay(alignment: .bottomTrailing) {
-                SessionResizeHandle(cursor: .frameResize(position: .bottomRight, directions: .all), help: "Изменить размер окна",
+                SessionResizeHandle(cursor: .frameResize(position: .bottomRight, directions: .all), help: "Resize",
                                     glyph: true) {
                     resize($0, horizontally: true, vertically: true)
                 } onEnded: {
@@ -303,8 +303,8 @@ struct NewSessionTile: View {
         } label: {
             VStack(spacing: 8) {
                 Image(systemName: "plus").font(.largeTitle.weight(.light))
-                Text(model.state.projects.isEmpty ? "Сначала добавьте проект"
-                     : targeted ? "Запустить задачу в новой сессии" : "Перетащите задачу\nв новую сессию")
+                Text(model.state.projects.isEmpty ? "Add a project first"
+                     : targeted ? "Launch the task in a new session" : "Drop a task\ninto a new session")
                     .font(.callout)
                     .multilineTextAlignment(.center)
             }

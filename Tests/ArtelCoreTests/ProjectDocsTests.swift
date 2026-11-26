@@ -38,7 +38,10 @@ import Testing
     @Test func linkInsertsIntoSpecSection() {
         let withSection = "# P\n\n## Спеки\n- @docs/a.md\n\n## Команды\nmake"
         #expect(ProjectDocs.link("docs/b.md", into: withSection) == "# P\n\n## Спеки\n- @docs/a.md\n- @docs/b.md\n\n## Команды\nmake")
-        #expect(ProjectDocs.link("docs/b.md", into: "# P\n") == "# P\n\n## Спеки\n- @docs/b.md\n")
+        #expect(ProjectDocs.link("docs/b.md", into: "# P\n") == "# P\n\n## Specs\n- @docs/b.md\n")
+        // An English Specs section is found too; "Docker" is not a docs heading.
+        #expect(ProjectDocs.link("docs/b.md", into: "# P\n\n## Specs\n- @docs/a.md\n\n## Docker\nx")
+                == "# P\n\n## Specs\n- @docs/a.md\n- @docs/b.md\n\n## Docker\nx")
         #expect(ProjectDocs.link("docs/a.md", into: withSection) == withSection)
     }
 

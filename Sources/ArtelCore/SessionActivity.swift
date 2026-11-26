@@ -26,14 +26,14 @@ public enum SessionActivity: String, Codable, Sendable, CaseIterable {
 
     public var title: String {
         switch self {
-        case .starting: "запуск"
-        case .working: "работает"
-        case .waitingInput: "ждёт ответа"
-        case .waitingPermission: "ждёт разрешения"
-        case .ready: "готова"
-        case .idle: "завершила"
-        case .error: "ошибка"
-        case .exited: "остановлена"
+        case .starting: "starting"
+        case .working: "working"
+        case .waitingInput: "waiting for input"
+        case .waitingPermission: "waiting for permission"
+        case .ready: "ready"
+        case .idle: "finished"
+        case .error: "error"
+        case .exited: "stopped"
         }
     }
 }
@@ -92,7 +92,7 @@ public struct SessionStatus: Codable, Equatable, Sendable {
             set(.working, message: .some(e.prompt), detail: .some(nil))
         case "PreToolUse":
             if e.toolName == "AskUserQuestion" {
-                set(.waitingInput, message: .some(e.toolSummary ?? "Агент задал вопрос"), detail: .some(nil))
+                set(.waitingInput, message: .some(e.toolSummary ?? "The agent asked a question"), detail: .some(nil))
             } else {
                 set(.working, detail: .some(Self.toolLine(e)))
             }
@@ -106,7 +106,7 @@ public struct SessionStatus: Codable, Equatable, Sendable {
         case "PermissionRequest":
             // AskUserQuestion also goes through the permission dialog: it is a question, not a permission.
             if e.toolName == "AskUserQuestion" { break }
-            set(.waitingPermission, message: .some(Self.toolLine(e) ?? "Требуется разрешение"))
+            set(.waitingPermission, message: .some(Self.toolLine(e) ?? "Permission required"))
         case "Notification":
             // Claude Code: operator-facing notifications. Kimi Code only reports background tasks
             // here (task.completed and friends) — those never change the session status.
@@ -115,10 +115,10 @@ public struct SessionStatus: Codable, Equatable, Sendable {
             case "permission_prompt":
                 // PermissionRequest usually came first with richer details; keep them.
                 if next.activity != .waitingPermission && next.activity != .waitingInput {
-                    set(.waitingPermission, message: .some(e.message ?? "Требуется разрешение"))
+                    set(.waitingPermission, message: .some(e.message ?? "Permission required"))
                 }
             case "elicitation_dialog":
-                set(.waitingInput, message: .some(e.message ?? "Агент ждёт ввода"))
+                set(.waitingInput, message: .some(e.message ?? "The agent is waiting for input"))
             default:
                 // idle_prompt and others only repeat what Stop already told us.
                 break
@@ -128,7 +128,7 @@ public struct SessionStatus: Codable, Equatable, Sendable {
             let asks = reply.map(Self.looksLikeQuestion) ?? false
             set(asks ? .waitingInput : .idle, message: .some(reply), detail: .some(nil))
         case "StopFailure":
-            set(.error, message: .some(e.message ?? e.lastAssistantMessage ?? "Ошибка API"), detail: .some(nil))
+            set(.error, message: .some(e.message ?? e.lastAssistantMessage ?? "API error"), detail: .some(nil))
         case "Interrupt":
             // Kimi Code: the operator interrupted the turn (Esc); the agent waits for input again.
             set(.ready, message: .some(nil), detail: .some(nil))

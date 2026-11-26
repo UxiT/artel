@@ -194,17 +194,17 @@ extension AppModel {
 
     /// Why the task can't be dragged into the workspace right now (nil = it can).
     func launchBlocker(for task: ArtelTask) -> String? {
-        if task.status.isClosed { return "Задача закрыта" }
-        if launchingTasks.contains(task.id) { return "Задача запускается" }
+        if task.status.isClosed { return "The task is closed" }
+        if launchingTasks.contains(task.id) { return "The task is launching" }
         if let s = activeSession(for: task), status(s.id).activity == .working || status(s.id).activity == .starting {
-            return "Задача уже выполняется в сессии «\(s.name)»"
+            return "The task is already running in session “\(s.name)”"
         }
         return nil
     }
 
     // MARK: - Editing
 
-    /// "Новая задача" (⌘N): opens the task window with a draft; the project is chosen there.
+    /// "New Task" (⌘N): opens the task window with a draft; the project is chosen there.
     func requestNewTask(projectID: UUID? = nil, title: String = "") {
         // A draft already on screen keeps what was typed.
         guard newTaskDraft == nil else { return }
@@ -258,7 +258,7 @@ extension AppModel {
         }
     }
 
-    var closeCommandTitle: String { keyWindowIsMain ? "Закрыть сессию…" : "Закрыть окно" }
+    var closeCommandTitle: String { keyWindowIsMain ? "Close Session…" : "Close Window" }
     var closeCommandDisabled: Bool {
         keyWindowIsMain && focusedSessionID == nil && state.expandedSessionID == nil
     }
@@ -267,7 +267,7 @@ extension AppModel {
     @discardableResult
     func createTask(_ draft: TaskDraft) -> ArtelTask? {
         guard let project = project(draft.projectID) else {
-            errorMessage = "Проект задачи не найден"
+            errorMessage = "The task's project wasn't found"
             return nil
         }
         guard draft.canCreate else { return nil }
@@ -275,7 +275,7 @@ extension AppModel {
             let existing = tasks.filter { $0.projectID == project.id }
             let task = try TaskStore.create(draft, project: project, existing: existing)
             tasks.append(task)
-            record(task, TaskHistoryEntry(actor: .operator, kind: .created, text: "Задача создана"))
+            record(task, TaskHistoryEntry(actor: .operator, kind: .created, text: "Task created"))
             taskFingerprints[project.id] = TaskStore.fingerprint(project)
             taskBaselines[task.id] = task
             newTaskDraft = nil
@@ -283,7 +283,7 @@ extension AppModel {
             refreshArtelDirty()
             return task
         } catch {
-            errorMessage = "Не удалось создать задачу: \(error.localizedDescription)"
+            errorMessage = "Couldn't create the task: \(error.localizedDescription)"
             return nil
         }
     }
@@ -327,7 +327,7 @@ extension AppModel {
             taskFingerprints[project.id] = TaskStore.fingerprint(project)
             if project.storeArtelInGit { artelDirty.insert(project.id) }
         } catch {
-            errorMessage = "Не удалось сохранить \(t.taskID): \(error.localizedDescription)"
+            errorMessage = "Couldn't save \(t.taskID): \(error.localizedDescription)"
         }
     }
 
@@ -344,12 +344,12 @@ extension AppModel {
             guard let record = record(sessionID) else { return }
             let activity = status(sessionID).activity
             guard Self.canReceiveTask(activity) else {
-                errorMessage = "Сессия «\(record.name)» сейчас занята (\(activity.title)). Перетащите задачу на «+», чтобы открыть новую."
+                errorMessage = "Session “\(record.name)” is busy (\(activity.title)). Drag the task onto “+” to open a new one."
                 return
             }
         }
         guard tmux != nil, agentPath(for: task.agent) != nil else {
-            errorMessage = "Сначала установите tmux и \(agent(for: task).displayName)."
+            errorMessage = "Install tmux and \(agent(for: task).displayName) first."
             return
         }
         taskLaunch = TaskLaunchRequest(taskID: taskID, sessionID: sessionID)
@@ -371,11 +371,11 @@ extension AppModel {
         guard var task = task(request.taskID), let project = project(task.projectID) else { return }
         let wantsWorktree = useWorktree || task.worktree != nil
         if wantsWorktree && git == nil {
-            errorMessage = "Для worktree нужен git."
+            errorMessage = "A worktree requires git."
             return
         }
         if wantsWorktree && task.worktree == nil && !project.isGitRepository {
-            errorMessage = "Проект «\(project.name)» не git-репозиторий — отдельный worktree недоступен."
+            errorMessage = "Project “\(project.name)” isn't a git repository, so a separate worktree isn't available."
             return
         }
         let branch = task.branch ?? WorktreeLayout.branch(for: task)
@@ -392,7 +392,7 @@ extension AppModel {
                 }.value
                 if case .failure(let error) = result {
                     launchingTasks.remove(task.id)
-                    errorMessage = "Не удалось подготовить worktree для \(task.taskID): \(error.localizedDescription)"
+                    errorMessage = "Couldn't prepare the worktree for \(task.taskID): \(error.localizedDescription)"
                     return
                 }
             }
@@ -407,10 +407,10 @@ extension AppModel {
             if task.status == .new { task.status = .inProgress }
             if saveModel, let model { task.model = model }
             record(task, TaskHistoryEntry(actor: .artel, kind: .launch,
-                                          text: "Агент запущен"
-                                              + (request.sessionID == nil ? " в новой сессии" : " в сессии «\(self.record(request.sessionID!)?.name ?? "")»")
-                                              + (wantsWorktree ? ", worktree \(branch)" : ", в проекте")
-                                              + ((model ?? task.model).map { ", модель \($0)" } ?? "")))
+                                          text: "Agent launched"
+                                              + (request.sessionID == nil ? " in a new session" : " in session “\(self.record(request.sessionID!)?.name ?? "")”")
+                                              + (wantsWorktree ? ", worktree \(branch)" : ", in the project")
+                                              + ((model ?? task.model).map { ", model \($0)" } ?? "")))
             let prompt = TaskPrompt.build(task: task, project: project, worktree: wantsWorktree ? worktree : nil,
                                           frame: promptFrame)
             let sessionModel = model ?? task.model
@@ -498,7 +498,7 @@ extension AppModel {
                 }
                 try tmux.paste(prompt, into: name, submit: true)
             } catch {
-                errorMessage = "Не удалось передать задачу в сессию: \(error.localizedDescription)"
+                errorMessage = "Couldn't send the task to the session: \(error.localizedDescription)"
             }
         }
     }
@@ -513,7 +513,7 @@ extension AppModel {
         let taskDir = TaskStore.dirName(project)
         let changes = git.artelChanges(repo: project.path, taskDir: taskDir)
         guard !changes.isEmpty else {
-            errorMessage = "В \(taskDir)/ проекта «\(project.name)» нет изменений."
+            errorMessage = "There are no changes in \(taskDir)/ of project “\(project.name)”."
             artelDirty.remove(projectID)
             return
         }

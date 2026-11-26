@@ -109,7 +109,7 @@ public enum NoTaskStore {
         try TaskStore.save(task, project: project)
         if existing == nil {
             try TaskHistory.append(TaskHistoryEntry(date: session.createdAt, actor: .artel, kind: .created,
-                                                    text: "Сессия без задачи сохранена"), in: dir)
+                                                    text: "Session without a task archived"), in: dir)
         }
 
         try TaskStore.captureLogs(sessionID: session.id, in: dir, eventsFile: eventsFile, transcript: transcript)
@@ -133,7 +133,7 @@ public enum NoTaskStore {
         do {
             try TaskStore.save(task, project: project)
             try TaskHistory.append(TaskHistoryEntry(date: now, actor: .operator, kind: .note,
-                                                    text: "Добавлена на доску из архива сессий без задачи"), in: target)
+                                                    text: "Added to the board from the no-task archive"), in: target)
         } catch {
             try? FileManager.default.moveItem(at: target, to: archive.directory)
             throw error

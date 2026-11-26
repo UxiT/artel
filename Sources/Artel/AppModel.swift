@@ -78,6 +78,8 @@ final class AppModel {
     /// Agent sessions started from a documentation page, by its document key.
     var docsAgentSessions: [String: String] = [:]
     var docsAgentRequest: DocsAgentRequest?
+    /// A drawing opened from a page (a click on it, or "Draw"): "Done" in the drawing goes back to this page.
+    var docsReturnPath: String?
     /// Bumped when the app writes a project document: the documentation tree reloads.
     var docsVersion = 0
     /// Task shown in the task window (a separate, non-modal window).
@@ -206,7 +208,7 @@ final class AppModel {
                 hookServer = server
             }
         } catch {
-            errorMessage = "Не удалось подготовить окружение: \(error.localizedDescription)"
+            errorMessage = "Couldn't prepare the environment: \(error.localizedDescription)"
         }
         notifier.setUp()
         isReady = tmux != nil && agentPath(for: state.settings.effectiveDefaultAgentID) != nil
@@ -332,7 +334,7 @@ final class AppModel {
     func addProject(at url: URL) {
         let url = url.standardizedFileURL
         if let existing = state.projects.first(where: { $0.path == url.path }) {
-            errorMessage = "Проект «\(existing.name)» уже добавлен."
+            errorMessage = "Project “\(existing.name)” is already added."
             return
         }
         let issues = ProjectValidator.issues(at: url)
@@ -341,7 +343,7 @@ final class AppModel {
             return
         }
         if issues.contains(.notADirectory) {
-            errorMessage = "\(url.path) — не папка."
+            errorMessage = "\(url.path) is not a folder."
             return
         }
         let claudeMDURL = url.appendingPathComponent("CLAUDE.md")
@@ -379,7 +381,7 @@ final class AppModel {
 
     func removeProject(_ project: Project) {
         if state.sessions.contains(where: { $0.projectID == project.id }) {
-            errorMessage = "Сначала остановите сессии проекта «\(project.name)»."
+            errorMessage = "Stop the sessions of project “\(project.name)” first."
             return
         }
         state.projects.removeAll { $0.id == project.id }
@@ -393,7 +395,7 @@ final class AppModel {
         state.projects[i] = project
         if old.storeArtelInGit != project.storeArtelInGit {
             do { try ArtelGitignore.apply(storeInGit: project.storeArtelInGit, project: project) } catch {
-                errorMessage = "Не удалось обновить .gitignore: \(error.localizedDescription)"
+                errorMessage = "Couldn't update .gitignore: \(error.localizedDescription)"
             }
         }
         if old.name != project.name { reloadTasks(of: project) }
@@ -461,7 +463,7 @@ final class AppModel {
                       agentID: String? = nil, archivesNoTask: Bool? = nil) -> String? {
         let agentID = agentID ?? state.settings.effectiveDefaultAgentID
         guard tmux != nil, agentPath(for: agentID) != nil else {
-            errorMessage = "Сначала установите tmux и \(CodingAgents.agent(forID: agentID).displayName)."
+            errorMessage = "Install tmux and \(CodingAgents.agent(forID: agentID).displayName) first."
             return nil
         }
         state.lastSessionSettings = SessionLaunchSettings(projectID: project.id, agentID: agentID,
@@ -705,7 +707,7 @@ final class AppModel {
     // MARK: - Tabs
 
     func addTab() {
-        let tab = WorkspaceTab(title: "Вкладка \(state.tabs.count + 1)")
+        let tab = WorkspaceTab(title: "Tab \(state.tabs.count + 1)")
         state.tabs.append(tab)
         state.selectedTabID = tab.id
         state.expandedSessionID = nil
@@ -761,7 +763,7 @@ final class AppModel {
     }
 
     func saveNow() {
-        do { try state.save() } catch { errorMessage = "Не удалось сохранить состояние: \(error.localizedDescription)" }
+        do { try state.save() } catch { errorMessage = "Couldn't save state: \(error.localizedDescription)" }
     }
 
     func shutdown() {

@@ -69,7 +69,7 @@ private struct FolderRow: View {
             Spacer(minLength: 0)
             if docCount > 0 {
                 Text("\(docCount)").font(.caption2).foregroundStyle(.secondary)
-                    .help("Документов проекта в папке: \(docCount)")
+                    .help("Project documents in this folder: \(docCount)")
             }
         }
     }
@@ -87,13 +87,13 @@ private struct FileRow: View {
             Spacer(minLength: 0)
             if let doc {
                 if !doc.exists {
-                    Text("нет файла").font(.caption2).foregroundStyle(.red)
-                        .help("CLAUDE.md ссылается на файл, которого нет")
+                    Text("missing").font(.caption2).foregroundStyle(.red)
+                        .help("CLAUDE.md links to a file that doesn't exist")
                 } else if doc.kind == .spec && !doc.linked {
                     Image(systemName: "link.badge.plus").foregroundStyle(.orange)
-                        .help("Спек не подключён в CLAUDE.md — агент не увидит его сам. Правый клик → «Подключить».")
+                        .help("The spec isn't linked in CLAUDE.md — the agent won't see it on its own. Right-click → “Link in CLAUDE.md as Spec”.")
                 } else {
-                    Text(doc.kind == .context ? "контекст" : doc.kind == .spec ? "спек" : "описание")
+                    Text(doc.kind == .context ? "context" : doc.kind == .spec ? "spec" : "description")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
             }
@@ -147,13 +147,13 @@ struct FilePreviewPane: View {
                 Text(path).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
                 Spacer()
                 if let url {
-                    Button("Открыть в редакторе кода") {
+                    Button("Open in Code Editor") {
                         model.openInEditor(projectID: project.id, root: project.url, files: [url])
                     }
                     Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: {
-                        Label("Показать в Finder", systemImage: "folder").labelStyle(.iconOnly)
+                        Label("Show in Finder", systemImage: "folder").labelStyle(.iconOnly)
                     }
-                    .help("Показать в Finder")
+                    .help("Show in Finder")
                 }
             }
             .padding(.horizontal, 12)
@@ -162,7 +162,7 @@ struct FilePreviewPane: View {
             if let url, FileManager.default.fileExists(atPath: url.path) {
                 QuickLookPreview(url: url)
             } else {
-                Text("Файла нет").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text("The file doesn't exist").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }

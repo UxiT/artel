@@ -13,14 +13,14 @@ enum ProjectPalette {
     }
 
     static let swatches: [Swatch] = [
-        Swatch(name: "Фиолетовый", color: .purple),
-        Swatch(name: "Сиреневый", color: Color(red: 0.62, green: 0.52, blue: 0.84)),
-        Swatch(name: "Индиго", color: .indigo),
-        Swatch(name: "Коричневый", color: .brown),
-        Swatch(name: "Сливовый", color: Color(red: 0.56, green: 0.27, blue: 0.52)),
-        Swatch(name: "Оливковый", color: Color(red: 0.47, green: 0.50, blue: 0.22)),
-        Swatch(name: "Графитовый", color: Color(red: 0.36, green: 0.40, blue: 0.47)),
-        Swatch(name: "Песочный", color: Color(red: 0.66, green: 0.58, blue: 0.42)),
+        Swatch(name: "Purple", color: .purple),
+        Swatch(name: "Lilac", color: Color(red: 0.62, green: 0.52, blue: 0.84)),
+        Swatch(name: "Indigo", color: .indigo),
+        Swatch(name: "Brown", color: .brown),
+        Swatch(name: "Plum", color: Color(red: 0.56, green: 0.27, blue: 0.52)),
+        Swatch(name: "Olive", color: Color(red: 0.47, green: 0.50, blue: 0.22)),
+        Swatch(name: "Graphite", color: Color(red: 0.36, green: 0.40, blue: 0.47)),
+        Swatch(name: "Sand", color: Color(red: 0.66, green: 0.58, blue: 0.42)),
     ]
 
     static var colors: [Color] { swatches.map(\.color) }
@@ -59,7 +59,7 @@ struct ProjectBadge: View {
                 }
             }
             .accessibilityHidden(true)
-            .help(project.map { "Проект \($0.name)" } ?? "")
+            .help(project.map { "Project \($0.name)" } ?? "")
     }
 }
 

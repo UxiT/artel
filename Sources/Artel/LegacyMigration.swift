@@ -25,8 +25,8 @@ enum LegacyMigration {
         // Two apps managing the same sessions and data dir would fight over them.
         _ = NSApplication.shared
         let alert = NSAlert()
-        alert.messageText = "Aide всё ещё запущен"
-        alert.informativeText = "Artel — новое название Aide. Закройте Aide и запустите Artel снова: агенты в сессиях продолжат работать."
+        alert.messageText = "Aide is still running"
+        alert.informativeText = "Artel is the new name of Aide. Quit Aide and launch Artel again; agents in your sessions keep running."
         alert.runModal()
         exit(0)
     }

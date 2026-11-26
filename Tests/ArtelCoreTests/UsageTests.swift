@@ -149,9 +149,9 @@ import Testing
     }
 
     @Test func durations() {
-        #expect(formatDuration(59) == "0 мин")
-        #expect(formatDuration(2 * 3600 + 10 * 60) == "2 ч 10 мин")
-        #expect(formatDuration(3 * 86400 + 5 * 3600) == "3 д 5 ч")
+        #expect(formatDuration(59) == "0m")
+        #expect(formatDuration(2 * 3600 + 10 * 60) == "2h 10m")
+        #expect(formatDuration(3 * 86400 + 5 * 3600) == "3d 5h")
     }
 }
 
@@ -173,7 +173,7 @@ import Testing
         #expect(out == "[A-1] p\ndo it")
         // Default frame without a worktree drops the worktree sentence entirely.
         let def = TaskPrompt.build(task: task, project: project, worktree: nil)
-        #expect(!def.contains("Рабочая директория") && def.hasSuffix("do it"))
+        #expect(!def.contains("working directory") && def.hasSuffix("do it"))
     }
 }
 

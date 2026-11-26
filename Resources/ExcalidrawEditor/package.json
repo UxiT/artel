@@ -1,0 +1,11 @@
+{
+  "name": "artel-excalidraw-editor",
+  "private": true,
+  "description": "Excalidraw editor and exporter bundled for Artel's markdown preview (built by scripts/build-excalidraw-editor.sh)",
+  "type": "module",
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

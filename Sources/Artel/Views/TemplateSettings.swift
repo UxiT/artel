@@ -7,8 +7,8 @@ struct TemplateSettingsView: View {
     @State private var preview = false
 
     enum Which: String, CaseIterable, Identifiable {
-        case prompt = "Промпт агента"
-        case task = "Новая задача"
+        case prompt = "Agent Prompt"
+        case task = "New Task"
         var id: String { rawValue }
     }
 
@@ -43,15 +43,15 @@ struct TemplateSettingsView: View {
         let frame = frameBinding.wrappedValue
         let missing = ["task_body"].filter { !frame.contains("{{\($0)}}") }
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Первое сообщение агенту при запуске задачи.")
+            Text("The first message sent to the agent when a task launches.")
                 .font(.caption).foregroundStyle(.secondary)
             MarkdownEditor(text: frameBinding).frame(minHeight: 260)
             if !missing.isEmpty {
-                Label("Нет \(missing.map { "{{\($0)}}" }.joined(separator: ", ")) — агент не получит текст задачи.",
+                Label("\(missing.map { "{{\($0)}}" }.joined(separator: ", ")) is missing — the agent won't get the task text.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.caption).foregroundStyle(.orange)
             }
-            DisclosureGroup("Плейсхолдеры") {
+            DisclosureGroup("Placeholders") {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(PromptTemplate.frameKeys, id: \.key) { item in
                         HStack(alignment: .firstTextBaseline) {
@@ -60,16 +60,16 @@ struct TemplateSettingsView: View {
                             Text(item.description).font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    Text("{{#ключ}}…{{/ключ}} — блок попадёт в промпт, только если значение не пустое (например, {{#worktree}}).")
+                    Text("{{#key}}…{{/key}} — the block is included in the prompt only if the value isn't empty (e.g. {{#worktree}}).")
                         .font(.caption).foregroundStyle(.secondary).padding(.top, 4)
                 }
                 .padding(.top, 4)
             }
             .font(.callout)
             HStack {
-                Button("Предпросмотр…") { preview = true }
+                Button("Preview…") { preview = true }
                 Spacer()
-                Button("Сбросить по умолчанию") { model.state.settings.promptFrame = nil }
+                Button("Reset to Default") { model.state.settings.promptFrame = nil }
                     .disabled(model.state.settings.promptFrame == nil)
             }
         }
@@ -77,11 +77,11 @@ struct TemplateSettingsView: View {
 
     private var taskEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Текст, с которого начинается каждая новая задача.").font(.caption).foregroundStyle(.secondary)
+            Text("The text every new task starts with.").font(.caption).foregroundStyle(.secondary)
             MarkdownEditor(text: taskBinding).frame(minHeight: 320)
             HStack {
                 Spacer()
-                Button("Сбросить по умолчанию") { model.state.settings.taskTemplate = nil }
+                Button("Reset to Default") { model.state.settings.taskTemplate = nil }
                     .disabled(model.state.settings.taskTemplate == nil)
             }
         }
@@ -99,9 +99,9 @@ struct PromptPreview: View {
         let (task, project) = sample
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Предпросмотр — \(task.taskID)").font(.headline)
+                Text("Preview — \(task.taskID)").font(.headline)
                 Spacer()
-                Toggle("С worktree", isOn: $withWorktree).toggleStyle(.checkbox)
+                Toggle("With worktree", isOn: $withWorktree).toggleStyle(.checkbox)
             }
             ScrollView {
                 Text(TaskPrompt.build(task: task, project: project,
@@ -113,7 +113,7 @@ struct PromptPreview: View {
                     .padding(8)
             }
             .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
-            HStack { Spacer(); Button("Закрыть") { dismiss() }.keyboardShortcut(.defaultAction) }
+            HStack { Spacer(); Button("Close") { dismiss() }.keyboardShortcut(.defaultAction) }
         }
         .padding(16)
         .frame(width: 640, height: 560)
@@ -125,9 +125,9 @@ struct PromptPreview: View {
             if task.branch == nil { task.branch = WorktreeLayout.branch(for: t) }
             return (task, p)
         }
-        let p = model.state.projects.first ?? Project(name: "пример", path: "/tmp/пример")
+        let p = model.state.projects.first ?? Project(name: "example", path: "/tmp/example")
         var t = ArtelTask(projectID: p.id, directory: p.url.appendingPathComponent(".artel/tasks/\(p.taskPrefix)-1-primer"),
-                         taskID: "\(p.taskPrefix)-1", title: "Пример задачи", body: ArtelTask.bodyTemplate())
+                         taskID: "\(p.taskPrefix)-1", title: "Example task", body: ArtelTask.bodyTemplate())
         t.branch = WorktreeLayout.branch(for: t)
         return (t, p)
     }

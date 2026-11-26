@@ -160,7 +160,7 @@ final class UsageMonitor {
                     }
                 }
             } catch {
-                recordFailure(id, message: "Неожиданный ответ API лимитов", retryAfter: nil)
+                recordFailure(id, message: "Unexpected response from the limits API", retryAfter: nil)
             }
         case .unauthorized:
             claudeCredentials = nil
@@ -200,7 +200,7 @@ final class UsageMonitor {
                 states[id]?.windows = try KimiUsage.parseUsage(data)
                 recordSuccess(id)
             } catch {
-                recordFailure(id, message: "Неожиданный ответ API лимитов", retryAfter: nil)
+                recordFailure(id, message: "Unexpected response from the limits API", retryAfter: nil)
             }
         case .unauthorized:
             kimiCredentials = nil
@@ -241,10 +241,10 @@ final class UsageMonitor {
             case 401, 403: return .unauthorized
             default:
                 let after = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
-                return .failed(code == 429 ? "Слишком частые запросы (429)" : "HTTP \(code)", retryAfter: after)
+                return .failed(code == 429 ? "Too many requests (429)" : "HTTP \(code)", retryAfter: after)
             }
         } catch {
-            return .failed("Сеть: \(error.localizedDescription)", retryAfter: nil)
+            return .failed("Network: \(error.localizedDescription)", retryAfter: nil)
         }
     }
 

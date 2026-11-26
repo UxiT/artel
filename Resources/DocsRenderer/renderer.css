@@ -79,6 +79,8 @@ summary { cursor: pointer; font-weight: 600; }
 .diagram { overflow-x: auto; text-align: center; }
 .diagram svg { max-width: 100%; height: auto; }
 .diagram svg.excalidraw-official { border-radius: 6px; }
+.excalidraw-block.linked { cursor: pointer; }
+.excalidraw-block.linked:hover svg { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 6px; }
 .diagram .pending { color: var(--fg-muted); font-size: 0.9em; }
 .diagram-error { text-align: left; padding: 10px 14px; border-radius: 6px; border-left: 4px solid var(--danger); background: var(--danger-bg); }
 .diagram-error b { color: var(--danger); }

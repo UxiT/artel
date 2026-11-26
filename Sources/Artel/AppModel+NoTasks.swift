@@ -38,7 +38,7 @@ extension AppModel {
                     transcript: captureTranscript ? status(record.id).transcriptPath.map(URL.init(fileURLWithPath:)) : nil
                 )
             } catch {
-                errorMessage = "Не удалось сохранить лог сессии: \(error.localizedDescription)"
+                errorMessage = "Couldn't save the session log: \(error.localizedDescription)"
             }
             return
         }
@@ -70,7 +70,7 @@ extension AppModel {
                 replace(current)
             }
         } catch {
-            errorMessage = "Не удалось сохранить архив сессии: \(error.localizedDescription)"
+            errorMessage = "Couldn't save the session archive: \(error.localizedDescription)"
         }
     }
 
@@ -115,7 +115,7 @@ extension AppModel {
             refreshArtelDirty()
             openTask(task.id)
         } catch {
-            errorMessage = "Не удалось создать задачу из архива: \(error.localizedDescription)"
+            errorMessage = "Couldn't create a task from the archive: \(error.localizedDescription)"
         }
     }
 

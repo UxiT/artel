@@ -72,7 +72,7 @@ struct ContentView: View {
             case .workspace:
                 WorkspaceView()
             case .tasks:
-                TaskBoardView().searchable(text: $model.taskFilter.search, placement: .toolbar, prompt: "Поиск задач")
+                TaskBoardView().searchable(text: $model.taskFilter.search, placement: .toolbar, prompt: "Search Tasks")
                     .searchFocused($searchFocused)
             case .projects:
                 ProjectsView()
@@ -88,7 +88,7 @@ struct ContentView: View {
             return model.docsProjectID.flatMap(model.project)?.path ?? ""
         }
         let waiting = model.attentionSessions.count
-        return waiting > 0 ? "Ждут ответа: \(waiting)" : ""
+        return waiting > 0 ? "Waiting for you: \(waiting)" : ""
     }
 }
 
@@ -114,48 +114,48 @@ private struct MainWindowDialogs: ViewModifier {
         }
             .modifier(TaskFlowSheets(host: .main))
             .confirmationDialog(
-            "Остановить сессию «\(model.sessionToStop?.name ?? "")»?",
+            "Stop Session “\(model.sessionToStop?.name ?? "")”?",
             isPresented: Binding(get: { model.sessionToStop != nil }, set: { if !$0 { model.sessionToStop = nil } }),
             titleVisibility: .visible
         ) {
-            Button("Остановить", role: .destructive) {
+            Button("Stop", role: .destructive) {
                 if let s = model.sessionToStop { model.stopSession(s.id) }
                 model.sessionToStop = nil
             }
         } message: {
             if model.sessionToStop?.taskID == nil {
-                Text("Процесс агента будет завершён, сессия исчезнет из рабочей области. Лог останется в архиве «Без задачи» на 7 дней.")
+                Text("The agent process will be terminated and the session removed from the workspace. Its log stays in the No Task archive for 7 days.")
             } else {
-                Text("Процесс агента будет завершён, сессия исчезнет из рабочей области. Разговор останется в истории агента.")
+                Text("The agent process will be terminated and the session removed from the workspace. The conversation stays in the agent's history.")
             }
         }
             .confirmationDialog(
-            "Закрыть вкладку «\(model.tabToClose?.title ?? "")»?",
+            "Close Tab “\(model.tabToClose?.title ?? "")”?",
             isPresented: Binding(get: { model.tabToClose != nil }, set: { if !$0 { model.tabToClose = nil } }),
             titleVisibility: .visible
         ) {
-            Button("Закрыть и остановить", role: .destructive) {
+            Button("Close and Stop", role: .destructive) {
                 if let tab = model.tabToClose { model.closeTab(tab.id) }
                 model.tabToClose = nil
             }
         } message: {
             if let tab = model.tabToClose {
                 let active = model.activeSessions(inTab: tab.id).count
-                Text("Активных сессий: \(active). Все сессии вкладки будут принудительно завершены и удалены из рабочей области.")
+                Text("Active sessions: \(active). All sessions in this tab will be force-stopped and removed from the workspace.")
             }
         }
     }
 }
 
 /// Main window toolbar: section switcher in the centre, the frequent actions on the right.
-/// Customizable (right-click the toolbar); "Добавить проект" is available there but hidden by default.
+/// Customizable (right-click the toolbar); "Add Project" is available there but hidden by default.
 private struct MainToolbar: CustomizableToolbarContent {
     @Environment(AppModel.self) private var model
 
     var body: some CustomizableToolbarContent {
         @Bindable var model = model
         ToolbarItem(id: "section", placement: .principal) {
-            Picker("Раздел", selection: $model.section) {
+            Picker("Section", selection: $model.section) {
                 ForEach(AppSection.allCases) { section in
                     Label(section.title, systemImage: section.symbol).tag(section)
                 }
@@ -174,19 +174,19 @@ private struct MainToolbar: CustomizableToolbarContent {
             ProjectToolbarActions()
         }
         ToolbarItem(id: "addProject", placement: .primaryAction, showsByDefault: false) {
-            Button { ProjectPicker.present(model) } label: { Label("Добавить проект", systemImage: "folder.badge.plus") }
-                .help("Добавить проект (⇧⌘O)")
+            Button { ProjectPicker.present(model) } label: { Label("Add Project", systemImage: "folder.badge.plus") }
+                .help("Add a project (⇧⌘O)")
         }
         ToolbarItem(id: "newSession", placement: .primaryAction) {
             Button { model.newSessionRequest = NewSessionRequest(projectID: model.focusedProjectID) } label: {
-                Label("Новая сессия", systemImage: "plus.rectangle.on.rectangle")
+                Label("New Session", systemImage: "plus.rectangle.on.rectangle")
             }
-            .help("Новая сессия без задачи (\(AppShortcuts.newSessionWithoutTask.display))")
+            .help("New session without a task (\(AppShortcuts.newSessionWithoutTask.display))")
             .disabled(model.state.projects.isEmpty || !model.isReady)
         }
         ToolbarItem(id: "newTask", placement: .primaryAction) {
-            Button { model.requestNewTask() } label: { Label("Новая задача", systemImage: "square.and.pencil") }
-                .help("Новая задача (⌘N)")
+            Button { model.requestNewTask() } label: { Label("New Task", systemImage: "square.and.pencil") }
+                .help("New task (⌘N)")
                 .disabled(model.state.projects.isEmpty)
         }
     }
@@ -200,21 +200,21 @@ private struct ProjectToolbarActions: View {
         if model.section == .projects, let id = model.docsProjectID, let project = model.project(id) {
             @Bindable var model = model
             Toggle(isOn: $model.showsProjectFiles) {
-                Label("Файлы", systemImage: "list.bullet.indent")
+                Label("Files", systemImage: "list.bullet.indent")
             }
             .toggleStyle(.button)
-            .help(model.showsProjectFiles ? "Вернуться к документации" : "Показать файлы проекта")
+            .help(model.showsProjectFiles ? "Back to documentation" : "Show project files")
             ControlGroup {
                 Button { model.openInEditor(projectID: project.id, root: project.url) } label: {
-                    Label("Открыть код", systemImage: "chevron.left.forwardslash.chevron.right")
+                    Label("Open Code", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
-                .help("Открыть проект в редакторе кода")
+                .help("Open the project in a code editor")
                 Button { NSWorkspace.shared.activateFileViewerSelecting([project.url]) } label: {
-                    Label("Показать в Finder", systemImage: "folder")
+                    Label("Show in Finder", systemImage: "folder")
                 }
-                .help("Показать папку проекта в Finder")
-                Button { model.projectSettingsID = project.id } label: { Label("Настройки проекта", systemImage: "gearshape") }
-                    .help("Настройки проекта")
+                .help("Show the project folder in Finder")
+                Button { model.projectSettingsID = project.id } label: { Label("Project Settings", systemImage: "gearshape") }
+                    .help("Project settings")
             }
         }
     }
@@ -228,37 +228,37 @@ struct SetupBanner: View {
         if !model.isBootstrapping && !model.isReady {
             VStack(alignment: .leading, spacing: 8) {
                 if model.tmuxPath == nil {
-                    row(icon: "terminal", text: "tmux не найден — он держит сессии агентов живыми между запусками Artel.") {
+                    row(icon: "terminal", text: "tmux not found. It keeps agent sessions alive between Artel launches.") {
                         if model.brewPath != nil {
-                            Button("Установить tmux") {
-                                model.installRequest = InstallRequest(title: "Установка tmux", command: "brew install tmux")
+                            Button("Install tmux") {
+                                model.installRequest = InstallRequest(title: "Installing tmux", command: "brew install tmux")
                             }
                         } else {
-                            Text("Установите Homebrew (brew.sh), затем `brew install tmux`").font(.caption)
+                            Text("Install Homebrew (brew.sh), then run `brew install tmux`").font(.caption)
                         }
                     }
                 }
                 if model.claudePath == nil && model.needsAgent(ClaudeCodeAgent.id) {
-                    row(icon: "sparkles", text: "Claude Code (claude) не найден.") {
-                        Button("Установить Claude Code") {
+                    row(icon: "sparkles", text: "Claude Code (claude) not found.") {
+                        Button("Install Claude Code") {
                             model.installRequest = InstallRequest(
-                                title: "Установка Claude Code",
+                                title: "Installing Claude Code",
                                 command: "curl -fsSL https://claude.ai/install.sh | bash && ~/.local/bin/claude --version")
                         }
                     }
                 }
                 if model.kimiPath == nil && model.needsAgent(KimiCodeAgent.id) {
-                    row(icon: "moon.stars", text: "Kimi Code (kimi) не найден.") {
-                        Button("Установить Kimi Code") {
+                    row(icon: "moon.stars", text: "Kimi Code (kimi) not found.") {
+                        Button("Install Kimi Code") {
                             model.installRequest = InstallRequest(
-                                title: "Установка Kimi Code",
+                                title: "Installing Kimi Code",
                                 command: "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash && kimi --version")
                         }
                     }
                 }
                 HStack {
                     Spacer()
-                    Button("Проверить снова") { Task { await model.recheckTools() } }
+                    Button("Check Again") { Task { await model.recheckTools() } }
                 }
             }
             .padding(12)
@@ -284,13 +284,13 @@ struct StatusBar: View {
         let all = model.state.sessions.map { model.status($0.id).activity }
         HStack(spacing: 14) {
             label(.working, all.filter { $0 == .working }.count)
-            label(.waitingInput, all.filter { $0.needsAttention }.count, title: "ждут ответа")
+            label(.waitingInput, all.filter { $0.needsAttention }.count, title: "waiting for you")
             label(.idle, all.filter { $0 == .idle }.count)
-            Text("всего \(all.count)").foregroundStyle(.tertiary)
+            Text("total \(all.count)").foregroundStyle(.tertiary)
             Spacer()
             if model.isBootstrapping {
                 ProgressView().controlSize(.small)
-                Text("Подготовка окружения…")
+                Text("Preparing environment…")
             } else if model.state.settings.limits.enabled {
                 LimitsIndicator().fixedSize()
             }
@@ -300,7 +300,7 @@ struct StatusBar: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Строка состояния")
+        .accessibilityLabel("Status bar")
     }
 
     private func label(_ activity: SessionActivity, _ n: Int, title: String? = nil) -> some View {

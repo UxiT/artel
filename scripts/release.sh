@@ -77,7 +77,7 @@ if [[ -n $NOTES ]]; then
 elif PREV=$(git describe --tags --abbrev=0 2>/dev/null); then
   git log --no-merges --pretty='- %s' $PREV..HEAD > $NOTES_FILE
 else
-  echo "Первый релиз Artel." > $NOTES_FILE
+  echo "First Artel release." > $NOTES_FILE
 fi
 
 KEY_ARGS=()
@@ -95,7 +95,7 @@ DMG=$OUT/Artel-$VERSION.dmg
 STAGE=$(mktemp -d)
 ditto build/Artel.app $STAGE/Artel.app
 ln -s /Applications $STAGE/Applications
-textutil -convert rtf -inputencoding UTF-8 Resources/FirstLaunch.html -output "$STAGE/Первый запуск.rtf"
+textutil -convert rtf -inputencoding UTF-8 Resources/FirstLaunch.html -output "$STAGE/First Launch.rtf"
 hdiutil create -quiet -volname Artel -srcfolder $STAGE -fs HFS+ -format ULMO $DMG
 rm -rf $STAGE
 hdiutil verify -quiet $DMG

@@ -25,30 +25,30 @@ struct NoTaskWindow: View {
                 }
                 .onAppear { load(archive) }
                 .navigationTitle(archive.title)
-                .navigationSubtitle("\(project.name) · сессия без задачи, архив хранится 7 дней")
+                .navigationSubtitle("\(project.name) · session without a task, archive kept for 7 days")
                 .toolbar {
                     ToolbarItem(placement: .primaryAction) {
                         Button { NSWorkspace.shared.open(archive.directory) } label: {
-                            Label("Папка архива", systemImage: "folder")
+                            Label("Archive Folder", systemImage: "folder")
                         }
-                        .help("Открыть папку архива в Finder")
+                        .help("Open the archive folder in Finder")
                     }
                     ToolbarSpacer(.fixed, placement: .primaryAction)
                     ToolbarItem(placement: .primaryAction) {
                         Button { model.convertNoTask(archive) } label: {
-                            Label("Добавить на доску", systemImage: "plus.square.on.square").labelStyle(.titleAndIcon)
+                            Label("Add to Board", systemImage: "plus.square.on.square").labelStyle(.titleAndIcon)
                         }
                         .buttonStyle(.glassProminent)
-                        .help("Создать номерную задачу, сохранив историю и файлы")
+                        .help("Create a numbered task, keeping the history and files")
                     }
                 }
             } else {
                 ContentUnavailableView {
-                    Label("Архив сессии не найден", systemImage: "archivebox")
+                    Label("Session Archive Not Found", systemImage: "archivebox")
                 } description: {
-                    Text("Архивы сессий без задачи хранятся 7 дней.")
+                    Text("Archives of sessions without a task are kept for 7 days.")
                 } actions: {
-                    Button("Закрыть окно") { dismissWindow(id: TaskWindowScene.id) }
+                    Button("Close Window") { dismissWindow(id: TaskWindowScene.id) }
                 }
             }
         }
@@ -63,39 +63,39 @@ struct NoTaskWindow: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(archive.title).font(.title2.weight(.semibold))
-                    Text("Обновлено \(archive.updated.formatted(date: .abbreviated, time: .shortened))")
+                    Text("Updated \(archive.updated.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
-                section("Первый запрос") {
+                section("First Prompt") {
                     if archive.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Первый запрос не сохранился.").font(.callout).foregroundStyle(.secondary)
+                        Text("The first prompt wasn't saved.").font(.callout).foregroundStyle(.secondary)
                     } else {
                         MarkdownPreview(text: archive.body.trimmingCharacters(in: .whitespacesAndNewlines))
                     }
                 }
 
-                section("Что было сделано") {
+                section("What Was Done") {
                     if let reply = replies.last {
                         if replies.count > 1 {
-                            Text("Последний ответ агента · всего ответов: \(replies.count)")
+                            Text("Agent's last reply · replies in total: \(replies.count)")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         MarkdownPreview(text: reply)
                     } else {
-                        Text("Текст итогового ответа не сохранился в событиях агента. Ниже перечислены доступные действия, а справа — полные файлы сессии.")
+                        Text("The text of the final reply wasn't saved in the agent's events. The available actions are listed below, and the full session files are on the right.")
                             .font(.callout).foregroundStyle(.secondary)
                     }
                 }
 
                 if !tools.isEmpty {
-                    section("Действия агента · \(tools.count)") {
+                    section("Agent Actions · \(tools.count)") {
                         ForEach(Array(tools.suffix(8).enumerated()), id: \.offset) { _, event in
                             HStack(alignment: .top, spacing: 7) {
                                 Image(systemName: "wrench.and.screwdriver")
                                     .font(.caption).foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(event.toolName ?? "Инструмент").font(.callout.weight(.medium))
+                                    Text(event.toolName ?? "Tool").font(.callout.weight(.medium))
                                     if let summary = event.toolSummary {
                                         Text(summary).font(.caption).foregroundStyle(.secondary)
                                             .lineLimit(3).textSelection(.enabled)
@@ -104,7 +104,7 @@ struct NoTaskWindow: View {
                             }
                         }
                         if tools.count > 8 {
-                            Text("Показаны последние 8 действий. Все события — в JSONL-файле справа.")
+                            Text("Showing the last 8 actions. All events are in the JSONL file on the right.")
                                 .font(.caption).foregroundStyle(.tertiary)
                         }
                     }
@@ -125,7 +125,7 @@ struct NoTaskWindow: View {
     private func filesPane(_ archive: ArtelTask) -> some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Файлы сессии · \(files.count)").font(.headline)
+                Text("Session Files · \(files.count)").font(.headline)
                 Spacer()
             }
             .padding(12)
@@ -138,8 +138,8 @@ struct NoTaskWindow: View {
                         .truncationMode(.middle)
                         .tag(url)
                         .contextMenu {
-                            Button("Открыть") { NSWorkspace.shared.open(url) }
-                            Button("Показать в Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                            Button("Open") { NSWorkspace.shared.open(url) }
+                            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                         }
                 }
             }
@@ -171,27 +171,27 @@ private struct NoTaskFilePreview: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text(url?.lastPathComponent ?? "Файл не выбран").font(.callout.weight(.medium)).lineLimit(1)
+                Text(url?.lastPathComponent ?? "No file selected").font(.callout.weight(.medium)).lineLimit(1)
                 Spacer()
                 if let url {
-                    Button { NSWorkspace.shared.open(url) } label: { Label("Открыть", systemImage: "arrow.up.forward.app") }
+                    Button { NSWorkspace.shared.open(url) } label: { Label("Open", systemImage: "arrow.up.forward.app") }
                     Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: {
-                        Label("Показать в Finder", systemImage: "folder").labelStyle(.iconOnly)
+                        Label("Show in Finder", systemImage: "folder").labelStyle(.iconOnly)
                     }
-                    .help("Показать в Finder")
+                    .help("Show in Finder")
                 }
             }
             .controlSize(.small)
             .padding(10)
             Divider()
             if url == nil {
-                Text("Выберите файл выше").foregroundStyle(.secondary)
+                Text("Select a file above").foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         if truncated {
-                            Text("Показан первый 1 МБ файла. Откройте файл внешним приложением, чтобы увидеть всё.")
+                            Text("Showing the first 1 MB of the file. Open it in another app to see all of it.")
                                 .font(.caption).foregroundStyle(.orange)
                         }
                         Text(content).font(AppFonts.shared.settings.code.font(monospaced: true)).textSelection(.enabled)
@@ -215,7 +215,7 @@ private struct NoTaskFilePreview: View {
         try? handle?.close()
         let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? 0
         truncated = size > UInt64(limit)
-        content = String(data: data, encoding: .utf8) ?? "Текстовый предпросмотр недоступен. Откройте файл внешним приложением."
+        content = String(data: data, encoding: .utf8) ?? "Text preview isn't available. Open the file in another app."
         // task.md of an archive: its frontmatter (status: done etc.) is bookkeeping, show the text.
         if url.lastPathComponent == "task.md", content.hasPrefix("---\n"),
            let end = content.range(of: "\n---\n", range: content.index(content.startIndex, offsetBy: 4)..<content.endIndex) {

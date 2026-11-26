@@ -71,18 +71,18 @@ struct TaskWindow: View {
                 TaskActivityPane(task: task)
                     .frame(minHeight: 160, idealHeight: 280, maxHeight: .infinity)
             }
-            .navigationTitle("\(task.taskID) · \(task.title.isEmpty ? "Без заголовка" : task.title)")
+            .navigationTitle("\(task.taskID) · \(task.title.isEmpty ? "Untitled" : task.title)")
             .navigationSubtitle(project.name)
             .toolbar { TaskToolbar(task: task) }
         } else {
             ContentUnavailableView {
-                Label("Задача не найдена", systemImage: "questionmark.folder")
+                Label("Task Not Found", systemImage: "questionmark.folder")
             } description: {
-                Text("Папку задачи удалили или переименовали.")
+                Text("The task folder was deleted or renamed.")
             } actions: {
-                Button("Закрыть окно") { dismissWindow(id: TaskWindowScene.id) }
+                Button("Close Window") { dismissWindow(id: TaskWindowScene.id) }
             }
-            .navigationTitle("Задача")
+            .navigationTitle("Task")
         }
     }
 }
@@ -108,38 +108,38 @@ private struct TaskToolbar: ToolbarContent {
                     .labelStyle(.titleAndIcon)
                     .foregroundStyle(current.status.color)
             }
-            .help("Статус задачи")
-            .accessibilityLabel("Статус: \(current.status.title)")
+            .help("Task status")
+            .accessibilityLabel("Status: \(current.status.title)")
         }
         ToolbarItemGroup(placement: .primaryAction) {
             Button { model.openInEditor(projectID: current.projectID, root: model.codeRoot(for: current)) } label: {
-                Label("Код", systemImage: "chevron.left.forwardslash.chevron.right")
+                Label("Code", systemImage: "chevron.left.forwardslash.chevron.right")
             }
-            .help(current.worktree != nil ? "Открыть worktree задачи в редакторе кода" : "Открыть проект в редакторе кода")
-            Button { NSWorkspace.shared.open(current.directory) } label: { Label("Папка задачи", systemImage: "folder") }
-                .help("Папка задачи: task.md, вложения, логи")
+            .help(current.worktree != nil ? "Open the task's worktree in the code editor" : "Open the project in the code editor")
+            Button { NSWorkspace.shared.open(current.directory) } label: { Label("Task Folder", systemImage: "folder") }
+                .help("Task folder: task.md, attachments, logs")
         }
         ToolbarSpacer(.fixed, placement: .primaryAction)
         ToolbarItem(placement: .primaryAction) {
             if let session {
                 Button { model.focus(session.id) } label: {
-                    Label("К сессии", systemImage: model.status(session.id).activity.symbol)
+                    Label("Go to Session", systemImage: model.status(session.id).activity.symbol)
                         .labelStyle(.titleAndIcon)
                 }
-                .help("Перейти к сессии «\(session.name)» — \(model.status(session.id).activity.title)")
+                .help("Go to session “\(session.name)” — \(model.status(session.id).activity.title)")
             } else {
                 Button { model.requestLaunch(taskID: current.id, intoSession: nil) } label: {
-                    Label("Запустить", systemImage: "play.fill").labelStyle(.titleAndIcon)
+                    Label("Launch", systemImage: "play.fill").labelStyle(.titleAndIcon)
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(blocker != nil)
-                .help(blocker ?? "Запустить в новой сессии (⌘R). Или перетащите задачу в рабочую область.")
+                .help(blocker ?? "Launch in a new session (⌘R), or drag the task to the workspace.")
             }
         }
     }
 }
 
-/// The new-task sheet: title, project, agent, model and text. "Создать" writes the task and opens its window.
+/// The new-task sheet: title, project, agent, model and text. "Create" writes the task and opens its window.
 struct NewTaskSheet: View {
     @Environment(AppModel.self) private var model
     @State private var draft: TaskDraft
@@ -157,7 +157,7 @@ struct NewTaskSheet: View {
     var body: some View {
         let project = model.project(draft.projectID)
         VStack(alignment: .leading, spacing: 0) {
-            TextField("Заголовок задачи", text: $draft.title)
+            TextField("Task Title", text: $draft.title)
                 .font(.title2.weight(.semibold))
                 .textFieldStyle(.plain)
                 .focused($titleFocused)
@@ -166,8 +166,8 @@ struct NewTaskSheet: View {
                 .padding(.top, 18)
                 .padding(.bottom, 10)
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
-                MetaRow("Проект") {
-                    Picker("Проект", selection: Binding(get: { draft.projectID }, set: { id in
+                MetaRow("Project") {
+                    Picker("Project", selection: Binding(get: { draft.projectID }, set: { id in
                         guard let new = model.project(id) else { return }
                         draft.switchProject(to: new, from: model.project(draft.projectID))
                     })) {
@@ -186,34 +186,34 @@ struct NewTaskSheet: View {
             .padding(.bottom, 12)
             Divider()
             HStack(spacing: 10) {
-                Text("Текст задачи — это промпт агенту").font(.caption).foregroundStyle(.secondary)
+                Text("The task text is the prompt for the agent").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button { editingBody.toggle() } label: {
-                    Label(editingBody ? "Просмотр" : "Редактировать", systemImage: editingBody ? "eye" : "pencil")
+                    Label(editingBody ? "Preview" : "Edit", systemImage: editingBody ? "eye" : "pencil")
                 }
-                .help(editingBody ? "Показать, как текст увидит оператор" : "Редактировать исходный текст")
+                .help(editingBody ? "Show the rendered text" : "Edit the source text")
             }
             .controlSize(.small)
             .padding(.horizontal, 20)
             .padding(.vertical, 6)
             MarkdownPane(text: $draft.body, editing: editingBody,
                          source: MarkdownPreviewSource(root: model.project(draft.projectID)?.url, documentID: "new-task",
-                                                       emptyText: "Текст пуст", openLink: { link in
+                                                       emptyText: "No text", openLink: { link in
                                                            if let url = URL(string: link), url.scheme != nil { NSWorkspace.shared.open(url) }
                                                        }))
                 .frame(maxHeight: .infinity)
             Divider()
             HStack(spacing: 10) {
-                Text("Файлы, вложения и история — после создания.")
+                Text("Files, attachments and history become available after the task is created.")
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button("Отмена", action: cancel)
+                Button("Cancel", action: cancel)
                     .keyboardShortcut(.cancelAction)
-                Button("Создать", action: create)
+                Button("Create", action: create)
                     .keyboardShortcut(.return, modifiers: .command)
                     .buttonStyle(.glassProminent)
                     .disabled(!draft.canCreate || project == nil)
-                    .help(draft.canCreate ? "Создать задачу (⌘⏎)" : "Введите заголовок")
+                    .help(draft.canCreate ? "Create the task (⌘⏎)" : "Enter a title")
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -224,11 +224,11 @@ struct NewTaskSheet: View {
         // Errors (e.g. creation failed) show over this sheet: the window's own alerts yield to it.
         .modifier(TaskFlowSheets(host: .newTask))
         .onAppear { titleFocused = true }
-        .confirmationDialog("Отменить новую задачу?", isPresented: $confirmDiscard) {
-            Button("Отменить задачу", role: .destructive) { model.newTaskDraft = nil }
-            Button("Продолжить редактирование", role: .cancel) {}
+        .confirmationDialog("Discard the new task?", isPresented: $confirmDiscard) {
+            Button("Discard Task", role: .destructive) { model.newTaskDraft = nil }
+            Button("Keep Editing", role: .cancel) {}
         } message: {
-            Text("Заголовок, текст и настройки не сохранятся.")
+            Text("The title, text and settings won't be saved.")
         }
     }
 
@@ -276,7 +276,7 @@ private struct TaskMainPane: View {
         let current = model.task(task.id) ?? task
         let editing = model.isEditing(key)
         VStack(alignment: .leading, spacing: 0) {
-            TextField("Заголовок", text: model.taskBinding(task, \.title), axis: .vertical)
+            TextField("Title", text: model.taskBinding(task, \.title), axis: .vertical)
                 .font(.title2.weight(.semibold))
                 .textFieldStyle(.plain)
                 .lineLimit(1...3)
@@ -284,15 +284,15 @@ private struct TaskMainPane: View {
                 .padding(.vertical, 12)
             Divider()
             HStack(spacing: 10) {
-                Text("Текст задачи — это промпт агенту").font(.caption).foregroundStyle(.secondary)
+                Text("The task text is the prompt for the agent").font(.caption).foregroundStyle(.secondary)
                 if model.isDirty(key) { UnsavedDot() }
                 Spacer()
                 if editing {
                     Group {
-                        Button { insertProjectFile() } label: { Label("Файл проекта", systemImage: "at") }
-                            .help("Вставить ссылку @путь на файл проекта")
-                        Button { attachFile() } label: { Label("Прикрепить", systemImage: "paperclip") }
-                            .help("Скопировать файл или скриншот в задачу и вставить ссылку")
+                        Button { insertProjectFile() } label: { Label("Project File", systemImage: "at") }
+                            .help("Insert an @path reference to a project file")
+                        Button { attachFile() } label: { Label("Attach", systemImage: "paperclip") }
+                            .help("Copy a file or screenshot into the task and insert a reference")
                     }
                     .buttonStyle(.borderless)
                 }
@@ -310,7 +310,7 @@ private struct TaskMainPane: View {
                          editing: editing,
                          source: MarkdownPreviewSource(root: project.url, baseDir: taskFolder(current), documentID: task.id,
                                                        linkReferences: true,
-                                                       emptyText: "Текст задачи пуст — нажмите «Редактировать» (⌘E)",
+                                                       emptyText: "The task has no text. Click Edit (⌘E)",
                                                        openLink: { open($0, current) }),
                          insertion: $insertion,
                          referencesForDrop: { urls in references(urls, current) },
@@ -353,7 +353,7 @@ private struct TaskMainPane: View {
         panel.directoryURL = project.url
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
-        panel.prompt = "Вставить"
+        panel.prompt = "Insert"
         guard panel.runModal() == .OK else { return }
         insertion = panel.urls.compactMap { try? TaskStore.reference(for: $0, project: project, task: task) }.joined(separator: " ")
     }
@@ -361,7 +361,7 @@ private struct TaskMainPane: View {
     private func attachFile() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
-        panel.prompt = "Прикрепить"
+        panel.prompt = "Attach"
         guard panel.runModal() == .OK else { return }
         insertion = "\n" + panel.urls.compactMap { try? TaskStore.attach($0, to: task) }.joined(separator: "\n")
         model.attachmentsVersion += 1
@@ -380,7 +380,7 @@ extension AppModel {
 
     func openTaskFile(_ path: String, task: ArtelTask) {
         guard let url = resolveTaskFile(path, task: task) else {
-            errorMessage = "Файл \(path) не найден"
+            errorMessage = "File \(path) not found"
             return
         }
         let textLike = ["md", "txt", "swift", "go", "py", "ts", "js", "json", "yaml", "yml", "toml", "rs", "kt", "java"]
@@ -406,14 +406,14 @@ private struct TaskFilesSection: View {
         let refs = ProjectDocs.linkedPaths(in: task.body).filter { !$0.hasPrefix("attachments/") }
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Файлы").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text("Files").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Text("\(refs.count + attachments.count)").font(.caption).foregroundStyle(.tertiary)
                 Spacer()
-                Text(targeted ? "Отпустите, чтобы добавить" : "Перетащите файлы сюда или в текст")
+                Text(targeted ? "Release to add" : "Drag files here or into the text")
                     .font(.caption2).foregroundStyle(targeted ? Color.accentColor : .secondary)
             }
             if refs.isEmpty && attachments.isEmpty {
-                Text("Нет файлов. Файлы проекта добавляются ссылкой @путь, остальные копируются в attachments/.")
+                Text("No files. Project files are added as @path references; other files are copied to attachments/.")
                     .font(.caption).foregroundStyle(.tertiary)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -428,7 +428,7 @@ private struct TaskFilesSection: View {
                                 NSWorkspace.shared.open(url)
                             }
                             .contextMenu {
-                                Button("Удалить вложение", role: .destructive) {
+                                Button("Delete Attachment", role: .destructive) {
                                     try? FileManager.default.removeItem(at: url)
                                     loadAttachments()
                                 }
@@ -490,9 +490,9 @@ private struct FileChip: View {
         }
         .buttonStyle(.plain)
         .frame(maxWidth: 260)
-        .help(url?.path ?? "Файл не найден")
+        .help(url?.path ?? "File not found")
         .contextMenu {
-            if let url { Button("Показать в Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
+            if let url { Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
         }
     }
 }
@@ -511,7 +511,7 @@ private struct TaskMetaPane: View {
                 sessionBlock(current)
                 Divider()
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                    MetaRow("Проект") {
+                    MetaRow("Project") {
                         HStack(spacing: 6) {
                             ProjectBadge(project: project, size: 14)
                             Text(project.name).lineLimit(1)
@@ -528,12 +528,12 @@ private struct TaskMetaPane: View {
                             Text(branch).font(.caption.monospaced()).textSelection(.enabled).lineLimit(2)
                                 .help(current.worktree ?? "")
                         }
-                        MetaRow("База") { Text(model.baseBranch(for: project)).font(.caption.monospaced()) }
+                        MetaRow("Base") { Text(model.baseBranch(for: project)).font(.caption.monospaced()) }
                     } else {
-                        MetaRow("Рабочая копия") { Text("папка проекта").foregroundStyle(.secondary) }
+                        MetaRow("Working Copy") { Text("Project folder").foregroundStyle(.secondary) }
                     }
-                    MetaRow("Создана") { RelativeDate(date: current.created) }
-                    MetaRow("Изменена") { RelativeDate(date: current.updated) }
+                    MetaRow("Created") { RelativeDate(date: current.created) }
+                    MetaRow("Modified") { RelativeDate(date: current.updated) }
                 }
                 .font(.callout)
             }
@@ -547,7 +547,7 @@ private struct TaskMetaPane: View {
     @ViewBuilder
     private func sessionBlock(_ task: ArtelTask) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Сессия").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Text("Session").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             if let s = model.activeSession(for: task) {
                 let activity = model.status(s.id).activity
                 HStack(spacing: 8) {
@@ -555,18 +555,18 @@ private struct TaskMetaPane: View {
                     Text(s.name).lineLimit(1).foregroundStyle(.secondary)
                     Spacer(minLength: 0)
                 }
-                Button("Перейти к сессии") { model.focus(s.id) }
+                Button("Go to Session") { model.focus(s.id) }
                     .controlSize(.small)
             } else if model.launchingTasks.contains(task.id) {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Запускается…").foregroundStyle(.secondary)
+                    Text("Launching…").foregroundStyle(.secondary)
                 }
             } else if let blocker = model.launchBlocker(for: task) {
                 Label(blocker, systemImage: "info.circle")
                     .font(.callout).foregroundStyle(.secondary)
             } else {
-                Text("Не запущена. Кнопка «Запустить» в тулбаре (⌘R) или перетащите задачу в рабочую область.")
+                Text("Not launched. Click Launch in the toolbar (⌘R) or drag the task to the workspace.")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -574,7 +574,7 @@ private struct TaskMetaPane: View {
     }
 }
 
-/// "3 ч назад", with the full date in the tooltip.
+/// "3 hours ago", with the full date in the tooltip.
 struct RelativeDate: View {
     let date: Date
 
@@ -596,15 +596,15 @@ private struct TaskActivityPane: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 if current.worktree != nil {
-                    Picker("Раздел", selection: $tab) {
-                        Text("История").tag("history")
-                        Text("Изменения").tag("diff")
+                    Picker("Section", selection: $tab) {
+                        Text("History").tag("history")
+                        Text("Changes").tag("diff")
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .fixedSize()
                 } else {
-                    Text("История").font(.headline)
+                    Text("History").font(.headline)
                 }
                 Spacer()
             }
@@ -702,7 +702,7 @@ private struct HistoryRow: View {
             HStack(spacing: 4) {
                 Text(entry.text)
                 if let file = entry.file {
-                    Button("открыть") { openFile(file) }.buttonStyle(.link)
+                    Button("Open") { openFile(file) }.buttonStyle(.link)
                 }
             }
             .font(.callout)

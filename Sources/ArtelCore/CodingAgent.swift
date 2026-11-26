@@ -60,7 +60,7 @@ public struct ClaudeCodeAgent: CodingAgent {
     public let displayName = "Claude Code"
     public let executableName = "claude"
     public let models = [
-        AgentModel(id: nil, title: "По умолчанию"),
+        AgentModel(id: nil, title: "Default"),
         AgentModel(id: "opus", title: "Opus"),
         AgentModel(id: "sonnet", title: "Sonnet"),
         AgentModel(id: "haiku", title: "Haiku"),
@@ -119,7 +119,7 @@ public struct KimiCodeAgent: CodingAgent {
     public let displayName = "Kimi Code"
     public let executableName = "kimi"
     public let models = [
-        AgentModel(id: nil, title: "По умолчанию"),
+        AgentModel(id: nil, title: "Default"),
         AgentModel(id: "kimi-code/kimi-for-coding", title: "Kimi for Coding"),
         AgentModel(id: "kimi-code/kimi-for-coding-highspeed", title: "Kimi for Coding (highspeed)"),
         AgentModel(id: "kimi-code/k3", title: "K3"),
@@ -191,8 +191,8 @@ public struct KimiCodeAgent: CodingAgent {
     public static func configBlock(hookBinary: String) -> String {
         let command = tomlString("'\(hookBinary.replacingOccurrences(of: "'", with: "'\\''"))'")
         var lines = [configBegin,
-                     "# Управляется приложением Artel: хуки состояния сессий.",
-                     "# Меняйте содержимое только через Artel; блок можно удалить целиком."]
+                     "# Managed by Artel: session status hooks.",
+                     "# Change it only through Artel; the whole block may be removed."]
         for event in hookEvents {
             lines += ["", "[[hooks]]", "event = \"\(event)\"", "command = \(command)", "timeout = 5"]
         }

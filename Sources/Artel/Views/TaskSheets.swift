@@ -26,24 +26,24 @@ struct TaskLaunchSheet: View {
             let isGit = model.project(task.projectID)?.isGitRepository ?? false
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Запуск \(task.taskID)").font(.title3.bold())
+                    Text("Launch \(task.taskID)").font(.title3.bold())
                     Text(task.title).foregroundStyle(.secondary)
-                    Text(target.map { "В сессию «\($0.name)»" } ?? "В новую сессию")
+                    Text(target.map { "Into session “\($0.name)”" } ?? "Into a new session")
                         .font(.callout)
                 }
 
                 Form {
                     if needsModel {
-                        Picker("Модель", selection: $chosenModel) {
+                        Picker("Model", selection: $chosenModel) {
                             ForEach(agent.models) { m in Text(m.title).tag(m.id) }
-                            Text("Другая…").tag(Optional(customTag))
+                            Text("Other…").tag(Optional(customTag))
                         }
                         if chosenModel == customTag {
-                            TextField("Id модели", text: $customModel)
+                            TextField("Model ID", text: $customModel)
                         }
-                        Toggle("Сохранить модель в задаче", isOn: $saveModel)
+                        Toggle("Save Model in Task", isOn: $saveModel)
                     } else {
-                        LabeledContent("Модель", value: task.model ?? "")
+                        LabeledContent("Model", value: task.model ?? "")
                     }
 
                     if let worktree = task.worktree {
@@ -51,23 +51,23 @@ struct TaskLaunchSheet: View {
                             Text(worktree).font(.caption.monospaced()).lineLimit(2).truncationMode(.middle)
                         }
                     } else if isGit {
-                        Toggle("Отдельный git worktree", isOn: $useWorktree)
+                        Toggle("Separate Git Worktree", isOn: $useWorktree)
                         Text(useWorktree
-                             ? "Агент работает в копии проекта на ветке \(WorktreeLayout.branch(for: task)). Слить её — вручную."
-                             : "Агент работает прямо в рабочей копии проекта.")
+                             ? "The agent works in a copy of the project on branch \(WorktreeLayout.branch(for: task)). You merge it yourself."
+                             : "The agent works directly in the project's working copy.")
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
-                        LabeledContent("Рабочая папка", value: "папка проекта")
-                        Text("Проект не git-репозиторий, поэтому отдельный worktree недоступен.")
+                        LabeledContent("Working Folder", value: "Project folder")
+                        Text("The project isn't a git repository, so a separate worktree isn't available.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
 
                     if let target {
-                        Toggle("Очистить контекст предыдущей сессии", isOn: otherTask ? .constant(true) : $clearContext)
+                        Toggle("Clear Previous Session Context", isOn: otherTask ? .constant(true) : $clearContext)
                             .disabled(otherTask)
                         if otherTask {
                             Label(
-                                "Сессия сейчас привязана к \(target.taskID.map { "задаче \($0)" } ?? "работе без задачи") (\(model.project(target.projectID)?.name ?? "")). Контекст будет очищен, агент перезапустится в рабочей директории задачи \(task.taskID).",
+                                "The session is currently attached to \(target.taskID.map { "task \($0)" } ?? "work without a task") (\(model.project(target.projectID)?.name ?? "")). Its context will be cleared and the agent will restart in the working directory of task \(task.taskID).",
                                 systemImage: "exclamationmark.triangle.fill")
                                 .font(.callout)
                                 .foregroundStyle(.orange)
@@ -78,8 +78,8 @@ struct TaskLaunchSheet: View {
 
                 HStack {
                     Spacer()
-                    Button("Отмена") { dismiss() }.keyboardShortcut(.cancelAction)
-                    Button("Запустить") {
+                    Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                    Button("Launch") {
                         let m: String? = needsModel ? (chosenModel == customTag ? customModel.trimmingCharacters(in: .whitespaces) : chosenModel) : task.model
                         model.launch(request, model: m, saveModel: needsModel && saveModel,
                                      clearContext: otherTask || clearContext, useWorktree: isGit && useWorktree)
@@ -95,7 +95,7 @@ struct TaskLaunchSheet: View {
                 chosenModel = model.project(task.projectID)?.defaultModel ?? model.state.settings.defaultModel(for: task.agent)
             }
         } else {
-            Text("Задача не найдена").padding(40)
+            Text("Task not found").padding(40)
         }
     }
 }
@@ -112,24 +112,24 @@ struct DoneSheet: View {
     var body: some View {
         if let task = model.task(request.taskID) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Закрыть \(task.taskID)?").font(.title3.bold())
+                Text("Close \(task.taskID)?").font(.title3.bold())
                 Text(task.title).foregroundStyle(.secondary)
-                Toggle("Остановить сессии задачи", isOn: $stopSessions)
+                Toggle("Stop Task Sessions", isOn: $stopSessions)
                     .disabled(model.sessions(for: task).isEmpty)
                 if task.worktree != nil {
-                    Toggle("Удалить worktree", isOn: $removeWorktree)
-                    Toggle("Удалить ветку \(task.branch ?? "")", isOn: $deleteBranch)
+                    Toggle("Delete Worktree", isOn: $removeWorktree)
+                    Toggle("Delete Branch \(task.branch ?? "")", isOn: $deleteBranch)
                         .disabled(!removeWorktree || task.branch == nil)
                         .padding(.leading, 18)
-                        .help("Только если ветка уже слита: несмёрженную ветку git не удалит")
-                    Text("Artel не сливает ветку сам. Незакоммиченные изменения в worktree будут потеряны.")
+                        .help("Only if the branch is already merged: git won't delete an unmerged branch")
+                    Text("Artel doesn't merge the branch for you. Uncommitted changes in the worktree will be lost.")
                         .font(.caption).foregroundStyle(.orange)
                         .opacity(removeWorktree ? 1 : 0)
                 }
                 HStack {
                     Spacer()
-                    Button("Отмена") { dismiss() }.keyboardShortcut(.cancelAction)
-                    Button("Закрыть задачу") {
+                    Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                    Button("Close Task") {
                         model.closeTask(task, stopSessions: stopSessions, removeWorktree: removeWorktree,
                                         deleteBranch: removeWorktree && deleteBranch)
                         dismiss()
@@ -151,8 +151,8 @@ struct CommitSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Коммит .artel/ — \(model.project(request.projectID)?.name ?? "")").font(.title3.bold())
-            Text("В коммит попадут только файлы .artel/. Остальные изменения в проекте не затрагиваются.")
+            Text("Commit .artel/ — \(model.project(request.projectID)?.name ?? "")").font(.title3.bold())
+            Text("Only files in .artel/ go into the commit. Other changes in the project are left alone.")
                 .font(.callout).foregroundStyle(.secondary)
             ScrollView {
                 Text(request.changes.joined(separator: "\n"))
@@ -163,12 +163,12 @@ struct CommitSheet: View {
             .frame(height: 140)
             .padding(6)
             .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
-            TextField("Сообщение коммита", text: $message, axis: .vertical)
+            TextField("Commit Message", text: $message, axis: .vertical)
                 .lineLimit(1...4)
             HStack {
                 Spacer()
-                Button("Отмена") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Закоммитить") { model.performCommit(request, message: message) }
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Commit") { model.performCommit(request, message: message) }
                     .keyboardShortcut(.defaultAction)
                     .disabled(message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }

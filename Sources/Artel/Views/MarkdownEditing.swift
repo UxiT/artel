@@ -325,7 +325,7 @@ struct MarkdownPreviewSource {
     var mdx = false
     var highlight: String?
     var anchor: String?
-    var emptyText = "Пусто"
+    var emptyText = "Empty"
     /// Link clicked, as written (`artel-doc:` for references).
     var openLink: (String) -> Void
     /// "Ask the agent" in the context menu of a selection.
@@ -372,6 +372,8 @@ struct MarkdownEditButton: View {
     var editing: Bool
     var dirty: Bool
     var canSave = true
+    /// ⌘⏎ on "Done" (editors that don't handle it themselves, like the drawing editor).
+    var doneShortcut = false
     var edit: () -> Void
     var done: () -> Void
     var save: () -> Void
@@ -380,21 +382,22 @@ struct MarkdownEditButton: View {
     var body: some View {
         if editing {
             if dirty {
-                Button("Отменить изменения", action: discard)
-                    .help("Вернуть текст как на диске и выйти из редактирования")
+                Button("Discard Changes", action: discard)
+                    .help("Revert to the text on disk and stop editing")
             }
-            Button("Сохранить", action: save)
+            Button("Save", action: save)
                 .keyboardShortcut("s")
                 .disabled(!dirty || !canSave)
-                .help("Сохранить (⌘S)")
-            Button(action: done) { Label("Готово", systemImage: "checkmark") }
+                .help("Save (⌘S)")
+            Button(action: done) { Label("Done", systemImage: "checkmark") }
                 .buttonStyle(.glassProminent)
                 .disabled(!canSave)
-                .help("Сохранить и вернуться к просмотру (⌘⏎ или Esc)")
+                .keyboardShortcut(doneShortcut ? KeyboardShortcut(.return, modifiers: .command) : nil)
+                .help(doneShortcut ? "Save and return (⌘⏎)" : "Save and return to the preview (⌘⏎ or Esc)")
         } else {
-            Button(action: edit) { Label("Редактировать", systemImage: "pencil") }
+            Button(action: edit) { Label("Edit", systemImage: "pencil") }
                 .keyboardShortcut("e")
-                .help("Редактировать исходный текст (⌘E)")
+                .help("Edit the source text (⌘E)")
         }
     }
 }
@@ -403,7 +406,7 @@ struct MarkdownEditButton: View {
 struct UnsavedDot: View {
     var body: some View {
         Circle().fill(Color.primary.opacity(0.75)).frame(width: 7, height: 7)
-            .help("Есть несохранённые изменения")
-            .accessibilityLabel("Не сохранено")
+            .help("There are unsaved changes")
+            .accessibilityLabel("Unsaved")
     }
 }

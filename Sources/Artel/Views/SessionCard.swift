@@ -64,7 +64,7 @@ struct SessionCard: View {
         let title = task?.title ?? record.name
         let modelName = record.model.flatMap { $0.isEmpty ? nil : $0 }
         let focused = model.focusedSessionID == record.id
-        let details = [project?.name, modelName.map { "модель \($0)" }].compactMap { $0 }.joined(separator: " · ")
+        let details = [project?.name, modelName.map { "model \($0)" }].compactMap { $0 }.joined(separator: " · ")
         return HStack(spacing: 7) {
             ProjectBadge(project: project, size: 15)
             if let task {
@@ -78,8 +78,8 @@ struct SessionCard: View {
                         .background(Capsule().fill(Color.secondary.opacity(0.18)))
                 }
                 .buttonStyle(.plain)
-                .help("\(task.title) — \(task.status.title). Открыть задачу")
-                .accessibilityLabel("Открыть задачу \(task.taskID)")
+                .help("\(task.title) — \(task.status.title). Open task")
+                .accessibilityLabel("Open task \(task.taskID)")
             }
             Text(title).font(.headline).lineLimit(1).layoutPriority(1)
                 .help([title, details].filter { !$0.isEmpty }.joined(separator: "\n"))
@@ -112,15 +112,15 @@ struct SessionCard: View {
         .contextMenu { SessionMenu(record: record) }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(title), \(status.activity.title)\(details.isEmpty ? "" : ", \(details)")")
-        .accessibilityAction(named: expanded ? "Свернуть" : "Развернуть") { model.toggleExpanded(record.id) }
-        .accessibilityAction(named: "Остановить сессию") { model.sessionToStop = record }
+        .accessibilityAction(named: expanded ? "Collapse" : "Expand") { model.toggleExpanded(record.id) }
+        .accessibilityAction(named: "Stop Session") { model.sessionToStop = record }
     }
 
     private func messageLine(_ status: SessionStatus, now: Date) -> String? {
         switch status.activity {
         case .starting:
             if now.timeIntervalSince(status.since) > 8 {
-                return "Агент ещё не ответил — возможно, ждёт подтверждения в терминале (например, доверия к папке)."
+                return "The agent hasn't responded yet. It may be waiting for confirmation in the terminal (for example, trusting the folder)."
             }
             return nil
         case .working:
@@ -171,11 +171,11 @@ struct ExitedOverlay: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "stop.circle").font(.largeTitle).foregroundStyle(.secondary)
-            Text("Процесс агента завершён").font(.headline).foregroundStyle(.white)
+            Text("Agent process exited").font(.headline).foregroundStyle(.white)
             HStack {
-                Button("Перезапустить") { model.relaunch(record) }
+                Button("Relaunch") { model.relaunch(record) }
                     .buttonStyle(.glassProminent)
-                Button("Закрыть сессию") { model.stopSession(record.id) }
+                Button("Close Session") { model.stopSession(record.id) }
                     .buttonStyle(.glass)
             }
         }
@@ -189,7 +189,7 @@ struct DropHint: View {
         ZStack {
             RoundedRectangle(cornerRadius: 10).fill((accepts ? Color.accentColor : Color.red).opacity(0.18))
             RoundedRectangle(cornerRadius: 10).strokeBorder(accepts ? Color.accentColor : Color.red, lineWidth: 3)
-            Label(accepts ? "Запустить задачу в этой сессии" : "Сессия занята — перетащите на «+»",
+            Label(accepts ? "Launch the task in this session" : "Session is busy. Drop onto “+” instead",
                   systemImage: accepts ? "arrow.down.doc" : "nosign")
                 .font(.headline)
                 .padding(.horizontal, 14)
@@ -210,12 +210,12 @@ private struct CardControls: View {
         GlassEffectContainer(spacing: 4) {
             HStack(spacing: 4) {
                 Button { model.toggleExpanded(record.id) } label: {
-                    Label(expanded ? "Свернуть" : "Развернуть",
+                    Label(expanded ? "Collapse" : "Expand",
                           systemImage: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                 }
-                .help(expanded ? "Свернуть (⌘↩)" : "Развернуть (⌘↩)")
-                Button { model.sessionToStop = record } label: { Label("Остановить сессию", systemImage: "stop.fill") }
-                    .help("Остановить сессию (⌘.)")
+                .help(expanded ? "Collapse (⌘↩)" : "Expand (⌘↩)")
+                Button { model.sessionToStop = record } label: { Label("Stop Session", systemImage: "stop.fill") }
+                    .help("Stop session (⌘.)")
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.glass)

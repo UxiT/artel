@@ -122,7 +122,7 @@ import Testing
         try TaskStore.captureLogs(sessionID: record.id, in: promoted.directory, transcript: transcript)
         #expect(try String(contentsOf: promotedLog, encoding: .utf8) == "continued")
         #expect(TaskHistory.load(from: promoted.directory).contains {
-            $0.kind == .note && $0.text.contains("архива сессий")
+            $0.kind == .note && $0.text.contains("no-task archive")
         })
         #expect(Set(TaskStore.load(project).map(\.taskID)) == ["ARTEL-1", "ARTEL-2"])
         #expect(NoTaskStore.load(project).isEmpty)

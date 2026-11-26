@@ -3,7 +3,7 @@ import AppKit
 import Foundation
 
 /// A markdown document open in the editor: the text on disk when editing began, and the edited text.
-/// Changes are saved explicitly (⌘S, "Готово", Esc, ⌘⏎); unsaved documents carry a dot in lists.
+/// Changes are saved explicitly (⌘S, "Done", Esc, ⌘⏎); unsaved documents carry a dot in lists.
 struct MarkdownDraft: Equatable {
     var saved: String
     var text: String
@@ -72,7 +72,7 @@ extension AppModel {
                 try DocsSite.welcomePage(projectName: project.name).write(to: url, atomically: true, encoding: .utf8)
             }
         } catch {
-            errorMessage = "Не удалось создать документацию: \(error.localizedDescription)"
+            errorMessage = "Couldn't create documentation: \(error.localizedDescription)"
             return nil
         }
         setDocsFolder(folder, for: project.id)
@@ -126,14 +126,14 @@ extension AppModel {
         case .projectFile(let projectID, let path):
             guard let project = project(projectID), let url = ProjectDocs.url(path, root: project.url) else { return false }
             if path == ProjectDocs.claudeMD && !ProjectValidator.hasDescription(d.text) {
-                errorMessage = "В CLAUDE.md нужен заполненный раздел «## Описание» — без него файл не сохранить."
+                errorMessage = "CLAUDE.md needs a filled-in “## Description” section — the file can't be saved without it."
                 return false
             }
             do {
                 try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try d.text.write(to: url, atomically: true, encoding: .utf8)
             } catch {
-                errorMessage = "Не удалось сохранить \(path): \(error.localizedDescription)"
+                errorMessage = "Couldn't save \(path): \(error.localizedDescription)"
                 return false
             }
         case .task(let id):
@@ -148,7 +148,7 @@ extension AppModel {
         return true
     }
 
-    /// "Готово" / Esc / ⌘⏎: save and back to the preview. Stays in the editor if saving failed.
+    /// "Done" / Esc / ⌘⏎: save and back to the preview. Stays in the editor if saving failed.
     func finishEditing(_ key: DocumentKey) {
         guard saveDraft(key) else { return }
         markdownDrafts[key.raw] = nil

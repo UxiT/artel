@@ -119,8 +119,8 @@ struct EditorChoiceSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("В чём открывать код?").font(.title3.bold())
-            Text("Проект «\(model.project(request.projectID)?.name ?? "")». Выбор запомнится для проекта; поменять можно в настройках проекта.")
+            Text("Open Code With").font(.title3.bold())
+            Text("Project “\(model.project(request.projectID)?.name ?? "")”. Your choice is remembered for this project; you can change it in Project Settings.")
                 .font(.callout).foregroundStyle(.secondary)
             List(apps, selection: $selection) { app in
                 HStack {
@@ -135,19 +135,19 @@ struct EditorChoiceSheet: View {
             }
             .frame(height: 220)
             .overlay {
-                if apps.isEmpty { Text("Редакторы кода не найдены").foregroundStyle(.secondary) }
+                if apps.isEmpty { Text("No code editors found").foregroundStyle(.secondary) }
             }
             HStack {
-                Button("Другое приложение…") {
+                Button("Other App…") {
                     let panel = NSOpenPanel()
                     panel.directoryURL = URL(fileURLWithPath: "/Applications")
                     panel.allowedContentTypes = [.application]
-                    panel.prompt = "Выбрать"
+                    panel.prompt = "Choose"
                     if panel.runModal() == .OK, let url = panel.url { model.chooseEditor(url, for: request); dismiss() }
                 }
                 Spacer()
-                Button("Отмена") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Открыть") {
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Open") {
                     if let selection { model.chooseEditor(selection.url, for: request); dismiss() }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -169,8 +169,8 @@ struct EditorSettingRow: View {
     @State private var apps: [EditorApp] = []
 
     var body: some View {
-        Picker("Редактор кода", selection: $editorPath) {
-            Text("Выбрать при первом открытии").tag(String?.none)
+        Picker("Code Editor", selection: $editorPath) {
+            Text("Ask on First Open").tag(String?.none)
             ForEach(apps) { app in
                 Text(app.name + (app.isJetBrains ? " · JetBrains" : "")).tag(Optional(app.url.path))
             }

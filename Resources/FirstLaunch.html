@@ -1,17 +1,17 @@
-<!-- Инструкция по первому запуску. release.sh превращает её в «Первый запуск.rtf» внутри DMG
-     (textutil понимает только простой HTML: заголовки, абзацы, списки, b, tt). -->
+<!-- First-launch instructions. release.sh turns this into "First Launch.rtf" inside the DMG
+     (textutil only understands simple HTML: headings, paragraphs, lists, b, tt). -->
 <html>
-<head><meta charset="utf-8"><title>Первый запуск Artel</title></head>
+<head><meta charset="utf-8"><title>Artel: first launch</title></head>
 <body style="font-family: -apple-system, 'Helvetica Neue'; font-size: 14px">
-<h2>Как установить и открыть Artel</h2>
+<h2>How to install and open Artel</h2>
 <ol>
-<li><p>Перетащите <b>Artel</b> на папку <b>Applications</b> в этом окне.</p></li>
-<li><p>Откройте Artel из «Программ». macOS ответит «Не удалось открыть „Artel“». Нажмите <b>Готово</b>, не «Переместить в Корзину».</p></li>
-<li><p>Сразу после этого откройте <b>Системные настройки → Конфиденциальность и безопасность</b>, прокрутите вниз до сообщения об Artel и нажмите <b>Всё равно открыть</b>. Подтвердите паролем или Touch ID.</p></li>
+<li><p>Drag <b>Artel</b> onto the <b>Applications</b> folder in this window.</p></li>
+<li><p>Open Artel from Applications. macOS replies ““Artel” Not Opened”. Click <b>Done</b>, not “Move to Trash”.</p></li>
+<li><p>Right after that, open <b>System Settings → Privacy &amp; Security</b>, scroll down to the message about Artel and click <b>Open Anyway</b>. Confirm with your password or Touch ID.</p></li>
 </ol>
-<p>Это нужно сделать один раз. Дальше Artel запускается как обычно, а обновления ставит сам, без этого шага.</p>
-<p>Вместо шагов 2–3 можно выполнить одну команду в Терминале:</p>
+<p>You only need to do this once. After that Artel opens as usual and installs updates by itself, without this step.</p>
+<p>Instead of steps 2–3 you can run one command in Terminal:</p>
 <p><tt>xattr -dr com.apple.quarantine /Applications/Artel.app</tt></p>
-<p><b>Почему так.</b> macOS блокирует любое скачанное приложение, которое не прошло нотаризацию Apple, а для неё нужен платный аккаунт разработчика. С самим Artel всё в порядке, его исходный код открыт: github.com/UxiT/artel.</p>
+<p><b>Why.</b> macOS blocks any downloaded app that isn't notarized by Apple, and notarization requires a paid developer account. Artel itself is fine — its source code is open: github.com/UxiT/artel.</p>
 </body>
 </html>

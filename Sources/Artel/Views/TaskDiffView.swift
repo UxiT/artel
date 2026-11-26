@@ -17,9 +17,9 @@ struct TaskDiffView: View {
                 if loading { ProgressView().controlSize(.small) }
                 Text(summary).font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button { Task { await load() } } label: { Label("Обновить", systemImage: "arrow.clockwise").labelStyle(.iconOnly) }
+                Button { Task { await load() } } label: { Label("Refresh", systemImage: "arrow.clockwise").labelStyle(.iconOnly) }
                     .buttonStyle(.borderless)
-                    .help("Обновить")
+                    .help("Refresh")
             }
             if let error {
                 Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
@@ -40,10 +40,10 @@ struct TaskDiffView: View {
                                 if f.kind != .deleted, let wt = task.worktree {
                                     Button { model.openInEditor(projectID: task.projectID, root: URL(fileURLWithPath: wt),
                                                                 files: [URL(fileURLWithPath: wt).appendingPathComponent(f.path)]) } label: {
-                                        Label("Открыть в редакторе кода", systemImage: "arrow.up.forward.square").labelStyle(.iconOnly)
+                                        Label("Open in Code Editor", systemImage: "arrow.up.forward.square").labelStyle(.iconOnly)
                                     }
                                     .buttonStyle(.borderless)
-                                    .help("Открыть в редакторе кода")
+                                    .help("Open in code editor")
                                 }
                             }
                         }
@@ -56,10 +56,10 @@ struct TaskDiffView: View {
     }
 
     private var summary: String {
-        guard task.worktree != nil else { return "У задачи ещё нет worktree" }
-        if files.isEmpty && !loading { return "Изменений нет" }
+        guard task.worktree != nil else { return "The task has no worktree yet" }
+        if files.isEmpty && !loading { return "No changes" }
         let add = files.reduce(0) { $0 + $1.additions }, del = files.reduce(0) { $0 + $1.deletions }
-        return "\(files.count) файлов · +\(add) −\(del)"
+        return "\(files.count) \(files.count == 1 ? "file" : "files") · +\(add) −\(del)"
     }
 
     private func load() async {

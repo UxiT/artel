@@ -36,9 +36,9 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         guard let center else { return }
         let content = UNMutableNotificationContent()
         let agent = agentID == KimiCodeAgent.id ? "Kimi" : "Claude"
-        content.title = "Лимит \(agent): \(w.label)"
-        var body = "Осталось \(Int(w.remainingPercent.rounded()))%"
-        if let reset = w.resetsAt { body += ", сброс через \(formatDuration(reset.timeIntervalSinceNow))" }
+        content.title = "\(agent) limit: \(w.label)"
+        var body = "\(Int(w.remainingPercent.rounded()))% left"
+        if let reset = w.resetsAt { body += ", resets in \(formatDuration(reset.timeIntervalSinceNow))" }
         content.body = body
         content.sound = .default
         center.add(UNNotificationRequest(identifier: "limit-\(LimitAlerts.key(w, agentID: agentID))", content: content, trigger: nil))

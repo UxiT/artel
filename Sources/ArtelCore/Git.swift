@@ -42,7 +42,7 @@ public struct Git: Sendable {
         let fm = FileManager.default
         if fm.fileExists(atPath: (path as NSString).appendingPathComponent(".git")) { return }
         guard hasCommits(repo) else {
-            throw ArtelError.git("в репозитории нет ни одного коммита — сделайте первый коммит, чтобы создавать worktree")
+            throw ArtelError.git("the repository has no commits yet — make the first commit to create worktrees")
         }
         try fm.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
         _ = try? git(["worktree", "prune"], in: repo)

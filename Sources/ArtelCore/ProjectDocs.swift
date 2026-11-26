@@ -6,9 +6,9 @@ public struct ProjectDoc: Identifiable, Hashable, Sendable {
         case description, spec, context
         public var title: String {
             switch self {
-            case .description: "Описание"
-            case .spec: "Спеки"
-            case .context: "Контекст"
+            case .description: "Description"
+            case .spec: "Specs"
+            case .context: "Context"
             }
         }
     }
@@ -134,13 +134,13 @@ public enum ProjectDocs {
         return out.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
-    /// Adds `@path` to CLAUDE.md: into a «Спеки»/«Specs» section if there is one, else a new section at the end.
+    /// Adds `@path` to CLAUDE.md: into a Specs (or legacy Russian «Спеки») section if there is one, else a new section at the end.
     public static func link(_ path: String, into text: String) -> String {
         if linkedPaths(in: text).contains(path) { return text }
         var lines = text.components(separatedBy: "\n")
         let isSpecHeading: (String) -> Bool = { l in
             let t = l.trimmingCharacters(in: .whitespaces).lowercased()
-            return t.hasPrefix("#") && (t.contains("спек") || t.contains("spec") || t.contains("документац"))
+            return t.hasPrefix("#") && (t.contains("spec") || t.contains("documentation") || t.contains("спек") || t.contains("документац"))
         }
         if let h = lines.firstIndex(where: isSpecHeading) {
             var end = h + 1
@@ -152,7 +152,7 @@ public enum ProjectDocs {
         }
         var t = text
         while t.hasSuffix("\n") { t.removeLast() }
-        return t + "\n\n## Спеки\n- @\(path)\n"
+        return t + "\n\n## Specs\n- @\(path)\n"
     }
 
     /// Relative path for a new doc: `docs/<name>.md` for specs, `.claude/rules/<name>.md` for context.

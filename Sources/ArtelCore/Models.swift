@@ -124,6 +124,9 @@ public struct SessionRecord: Codable, Identifiable, Equatable, Hashable, Sendabl
 }
 
 public struct WorkspaceTab: Codable, Identifiable, Equatable, Hashable, Sendable {
+    /// The first tab's name before the UI was English.
+    static let legacyDefaultTitle = "\u{0421}\u{0435}\u{0441}\u{0441}\u{0438}\u{0438}"
+
     public var id: UUID
     public var title: String
     public init(id: UUID = UUID(), title: String) {
@@ -386,7 +389,7 @@ public struct SessionLaunchSettings: Codable, Equatable, Sendable {
 public struct AppState: Codable, Equatable, Sendable {
     public var projects: [Project] = []
     public var sessions: [SessionRecord] = []
-    public var tabs: [WorkspaceTab] = [WorkspaceTab(title: "Сессии")]
+    public var tabs: [WorkspaceTab] = [WorkspaceTab(title: "Sessions")]
     public var selectedTabID: UUID?
     public var expandedSessionID: String?
     public var lastSessionSettings: SessionLaunchSettings?
@@ -399,8 +402,10 @@ public struct AppState: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         projects = try c.decodeIfPresent([Project].self, forKey: .projects) ?? []
         sessions = try c.decodeIfPresent([SessionRecord].self, forKey: .sessions) ?? []
-        tabs = try c.decodeIfPresent([WorkspaceTab].self, forKey: .tabs) ?? [WorkspaceTab(title: "Сессии")]
-        if tabs.isEmpty { tabs = [WorkspaceTab(title: "Сессии")] }
+        tabs = try c.decodeIfPresent([WorkspaceTab].self, forKey: .tabs) ?? [WorkspaceTab(title: "Sessions")]
+        if tabs.isEmpty { tabs = [WorkspaceTab(title: "Sessions")] }
+        // The default tab of the Russian UI gets the English default name.
+        for i in tabs.indices where tabs[i].title == WorkspaceTab.legacyDefaultTitle { tabs[i].title = "Sessions" }
         selectedTabID = try c.decodeIfPresent(UUID.self, forKey: .selectedTabID)
         expandedSessionID = try c.decodeIfPresent(String.self, forKey: .expandedSessionID)
         lastSessionSettings = try c.decodeIfPresent(SessionLaunchSettings.self, forKey: .lastSessionSettings)

@@ -9,9 +9,9 @@ public enum TaskStatus: String, Codable, CaseIterable, Sendable, Identifiable {
 
     public var title: String {
         switch self {
-        case .new: "Новая"
-        case .inProgress: "В работе"
-        case .done: "Готово"
+        case .new: "New"
+        case .inProgress: "In Progress"
+        case .done: "Done"
         }
     }
 
@@ -96,19 +96,19 @@ public struct ArtelTask: Equatable, Identifiable, Sendable {
 
     public static func bodyTemplate() -> String {
         """
-        ## Что сделать
+        ## What to do
 
 
-        ## Контекст
+        ## Context
 
 
-        ## Референсы
+        ## References
 
 
-        ## Критерии приёмки
+        ## Acceptance criteria
         - [ ]
 
-        ## Ограничения
+        ## Constraints
 
         """
     }

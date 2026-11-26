@@ -1,51 +1,51 @@
-# Artel ⚒️ — артель кодовых агентов на вашем Mac
+# Artel ⚒️ — a crew of coding agents on your Mac
 
 <p align="center">
-  <img src="docs/assets/icon.png" width="160" alt="Artel: сетка сессий агентов, одна ждёт ответа">
+  <img src="docs/assets/icon.png" width="160" alt="Artel: a grid of agent sessions, one waiting for a reply">
 </p>
 
 <p align="center">
-  <a href="https://github.com/UxiT/artel/releases/latest"><img src="https://img.shields.io/github/v/release/UxiT/artel?style=flat-square&label=release" alt="Последний релиз"></a>
+  <a href="https://github.com/UxiT/artel/releases/latest"><img src="https://img.shields.io/github/v/release/UxiT/artel?style=flat-square&label=release" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20Silicon-black?style=flat-square&logo=apple" alt="macOS 26+, Apple Silicon">
   <img src="https://img.shields.io/badge/Swift-6.2-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 6.2">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square" alt="Лицензия: GPL-3.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square" alt="License: GPL-3.0"></a>
 </p>
 
-Artel — нативное macOS-приложение, в котором несколько сессий Claude Code и Kimi Code работают параллельно в одном окне. Рядом с ними — лёгкая доска задач: задача — это промпт с вложениями, который бросают в сессию, по желанию в отдельном git worktree. По карточке сессии сразу видно, что делает агент: работает, ждёт ответа, просит разрешения или закончил.
+Artel is a native macOS app that runs several Claude Code and Kimi Code sessions in parallel in one window. Next to them sits a lightweight task board: a task is a prompt with attachments that you drop into a session, optionally in its own git worktree. Each session card shows what the agent is doing: working, waiting for your reply, asking for permission, or finished.
 
-**Агенты не останавливаются.** Сессии живут в собственном tmux-сервере и переживают закрытие приложения, а после перезагрузки поднимаются через `--resume`. Задачи — обычные файлы в репозитории (`.artel/tasks/`), их можно править руками и коммитить.
+**Agents keep running.** Sessions live in their own tmux server and survive quitting the app; after a reboot they come back via `--resume`. Tasks are plain files in the repository (`.artel/tasks/`): you can edit them by hand and commit them.
 
-[Скачать](https://github.com/UxiT/artel/releases/latest) · [Спецификация](docs/SPEC.md) · [Горячие клавиши](#горячие-клавиши) · [Разработка](#разработка) · [Лицензия](#лицензия)
+[Download](https://github.com/UxiT/artel/releases/latest) · [Specification](docs/SPEC.md) · [Keyboard shortcuts](#keyboard-shortcuts) · [Development](#development) · [License](#license)
 
-## Установка
+## Installation
 
-1. Скачайте `Artel-<версия>.dmg` из [последнего релиза](https://github.com/UxiT/artel/releases/latest), откройте его и перетащите `Artel.app` на папку «Программы».
-2. Первый запуск macOS заблокирует сообщением «Не удалось открыть „Artel“»: приложение не нотаризовано Apple, для этого нужен платный аккаунт разработчика. Нажмите «Готово» (не «Переместить в Корзину»), затем сразу откройте «Системные настройки → Конфиденциальность и безопасность», прокрутите вниз до сообщения об Artel и нажмите «Всё равно открыть». Вместо этого можно выполнить в Терминале:
+1. Download `Artel-<version>.dmg` from the [latest release](https://github.com/UxiT/artel/releases/latest), open it and drag `Artel.app` onto the Applications folder.
+2. On first launch macOS blocks the app with "“Artel” Not Opened": the app is not notarized by Apple, which requires a paid developer account. Click "Done" (not "Move to Trash"), then open "System Settings → Privacy & Security", scroll down to the message about Artel and click "Open Anyway". Alternatively, run in Terminal:
    ```sh
    xattr -dr com.apple.quarantine /Applications/Artel.app
    ```
-   Это нужно один раз, обновления ставятся без этого шага. Та же инструкция лежит в DMG — файл «Первый запуск».
-3. Нужен хотя бы один агент: [Claude Code](https://github.com/anthropics/claude-code) (`claude`) или Kimi Code (`kimi`). tmux уже встроен.
+   This is needed only once; updates install without this step. The same instructions are included in the DMG as a first-launch note.
+3. You need at least one agent: [Claude Code](https://github.com/anthropics/claude-code) (`claude`) or Kimi Code (`kimi`). tmux is bundled.
 
-Дальше Artel обновляется сам через [Sparkle](https://sparkle-project.org): при каждом запуске (и раз в день, пока открыт) проверяет релизы и, если вышла новая версия, предлагает её установить в отдельном окне с описанием изменений. Проверить вручную — «Artel → Проверить обновления…».
+After that Artel updates itself via [Sparkle](https://sparkle-project.org): at every launch (and once a day while it is open) it checks for releases and, if a new version is out, offers to install it in a separate window with release notes. To check manually, use "Artel → Check for Updates…".
 
-## Быстрый старт
+## Quick start
 
-1. Добавьте проект — любую папку (⇧⌘O или перетащите из Finder). Если в ней нет `CLAUDE.md` или git, Artel предложит шаблон и `git init`; можно отказаться. Без git задачи работают прямо в папке проекта, без отдельного worktree.
-2. Откройте сессию (⇧⌘T) или создайте задачу (⌘N) и перетащите её на «+» в сетке сессий.
-3. Работайте в терминале агента как обычно. Сессии, которые ждут вас, собираются в «Ждут ответа» в сайдбаре; ⌘J переходит к следующей.
+1. Add a project: any folder (⇧⌘O or drag it from Finder). If it has no `CLAUDE.md` or git, Artel offers a template and `git init`; you can decline. Without git, tasks run directly in the project folder, without a separate worktree.
+2. Open a session (⇧⌘T), or create a task (⌘N) and drag it onto "+" in the session grid.
+3. Work in the agent's terminal as usual. Sessions waiting for you are collected under "Waiting for You" in the sidebar; ⌘J jumps to the next one.
 
-## Возможности
+## Features
 
-- **Workspace:** сетка сессий, терминал и статус агента на каждой карточке, вкладки, растягивание карточек по сетке, уведомления и бейдж в Dock, когда агент ждёт ответа.
-- **Доска задач:** «Новая / В работе / Готово». Файлы бросаются в текст задачи ссылками `@путь` или копируются во вложения.
-- **Worktree по выбору:** задача получает свою рабочую копию и ветку `artel/<ID>-<slug>`, вкладка «Изменения» показывает diff. Сливаете ветку вы — Artel ничего не мерджит.
-- **Сессии без задачи** хранятся в архиве 7 дней, удачную можно добавить на доску. Архив выключается в настройках, в окне новой сессии или в меню карточки.
-- **Документация проекта** прямо в приложении: страницы в `docs/` (совместимо с Docusaurus), диаграммы Mermaid и Excalidraw (точная отрисовка Excalidraw — отдельная загрузка ~20 МБ в настройках), формулы, врезки `:::note`, поиск, ссылки с автодополнением, картинки из буфера. Агенту можно поручить страницу или выделенный фрагмент. Рядом — `CLAUDE.md` и правила контекста агента, файлы проекта — кнопкой «Файлы» в тулбаре.
-- **Markdown всегда в просмотре** (задачи, документация); «Редактировать» (⌘E) открывает исходный текст, Esc / ⌘↩ / «Готово» сохраняют и возвращают к просмотру, несохранённое отмечено точкой.
-- **Лимиты подписки** Claude Code и Kimi Code в строке состояния с уведомлением у порога. Читаются через уже существующие логины CLI, только на чтение.
+- **Workspace:** a grid of sessions with a terminal and agent status on every card, tabs, cards that stretch across grid cells, notifications and a Dock badge when an agent is waiting for you.
+- **Task board:** "New / In Progress / Done". Files go into the task text as `@path` references or are copied into attachments.
+- **Optional worktree:** a task gets its own working copy and branch `artel/<ID>-<slug>`; the "Changes" tab shows the diff. You merge the branch yourself: Artel never merges anything.
+- **Sessions without a task** are kept in the no-task archive for 7 days; a useful one can be added to the board. The archive can be turned off in Settings, in the New Session window or in the card menu.
+- **Project documentation** inside the app: pages in `docs/` (Docusaurus-compatible), Mermaid and Excalidraw diagrams (draw Excalidraw diagrams right in a page, like in Obsidian, after a one-time ~15 MB download in Settings), formulas, `:::note` admonitions, search, links with autocompletion, images pasted from the clipboard. You can hand a page or a selected fragment to an agent. Alongside are `CLAUDE.md` and the agent context rules; project files are behind the "Files" toolbar button.
+- **Markdown is always rendered** (tasks, documentation); "Edit" (⌘E) opens the source text, Esc / ⌘↩ / "Done" save and return to the rendered view, unsaved changes are marked with a dot.
+- **Subscription limits** for Claude Code and Kimi Code in the status bar, with a notification at a threshold. They are read through your existing CLI logins, read-only.
 
-## Как это устроено
+## How it works
 
 ```
 Artel.app ──tmux new-session──▶ tmux -L artel ──▶ claude --settings <hooks> --session-id <id>
@@ -54,62 +54,62 @@ Artel.app ──tmux new-session──▶ tmux -L artel ──▶ claude --setti
    └──────────────────────────────────────── artel-hook ──▶ events/<session>.jsonl (source of truth)
 ```
 
-- Агент работает в приватном tmux-сервере, приложение показывает его встроенным терминалом (SwiftTerm).
-- Хуки агента вызывают `artel-hook`: он дописывает событие в журнал сессии и будит приложение через сокет. Статус карточки восстанавливается из журнала и после перезапуска.
-- Данные приложения лежат в `~/Library/Application Support/Artel/`, задачи — в `.artel/` каждого проекта.
+- The agent runs in a private tmux server; the app shows it in an embedded terminal (SwiftTerm).
+- The agent's hooks call `artel-hook`: it appends the event to the session log and wakes the app through a socket. A card's status is restored from the log, including after a restart.
+- App data lives in `~/Library/Application Support/Artel/`, tasks in each project's `.artel/`.
 
-## Горячие клавиши
+## Keyboard shortcuts
 
 | | |
 |---|---|
-| ⌘N | новая задача |
-| ⇧⌘T | новая сессия без задачи |
-| ⌘R | запустить выбранную задачу |
-| ⌘J | следующая сессия, ждущая ответа |
-| ⌘1…⌘9 | перейти к сессии |
-| ⌥⌘1 / 2 / 3 | разделы: Workspace / проекты / задачи |
+| ⌘N | new task |
+| ⇧⌘T | new session without a task |
+| ⌘R | launch the selected task |
+| ⌘J | next session waiting for you |
+| ⌘1…⌘9 | go to a session |
+| ⌥⌘1 / 2 / 3 | sections: Workspace / Projects / Tasks |
 
 <details>
-<summary>Все горячие клавиши</summary>
+<summary>All keyboard shortcuts</summary>
 
 | | |
 |---|---|
-| ⌥⌘1 / ⌥⌘2 / ⌥⌘3 | разделы: Workspace / проекты / задачи |
-| ⌘E | редактировать документ или текст задачи |
-| ⌘S | сохранить, не выходя из редактирования |
-| Esc / ⌘↩ | сохранить и вернуться к просмотру |
-| ⌘N | новая задача (окно задачи) |
-| ⌘F | поиск задач; в разделе «Проекты» — поиск по документации |
-| ⌘R | запустить выбранную задачу |
-| ⌘O | открыть выбранную задачу |
-| ⌥⌘S | закоммитить `.artel/` |
-| ⌘T | новая сессия с настройками последней запущенной |
-| ⇧⌘T | новая сессия без задачи с выбором настроек |
-| ⇧⌘O | добавить проект |
-| ⌥⌘T | новая вкладка |
-| ⌘J | следующая сессия, ждущая ответа |
-| ⌘1…⌘9 | перейти к сессии |
-| ⌘↩ | развернуть / свернуть |
-| ⌘W / ⌘. | закрыть / остановить сессию с подтверждением (в главном окне); в окне задачи и в настройках ⌘W закрывает окно |
-| ⏎ / двойной клик | открыть выбранную задачу или архив сессии |
-| ⌥← / ⌥→ | на доске: перенести выбранную задачу в соседнюю колонку |
-| ⌃⌘S | показать / скрыть сайдбар |
-| ⇧↩ | в терминале сессии: перенос строки в промпте агента |
+| ⌥⌘1 / ⌥⌘2 / ⌥⌘3 | sections: Workspace / Projects / Tasks |
+| ⌘E | edit a document or the task text |
+| ⌘S | save without leaving edit mode |
+| Esc / ⌘↩ | save and return to the rendered view |
+| ⌘N | new task (task window) |
+| ⌘F | search tasks; in the Projects section, search the documentation |
+| ⌘R | launch the selected task |
+| ⌘O | open the selected task |
+| ⌥⌘S | commit `.artel/` |
+| ⌘T | new session with the settings of the last launched one |
+| ⇧⌘T | new session without a task, choosing its settings |
+| ⇧⌘O | add a project |
+| ⌥⌘T | new tab |
+| ⌘J | next session waiting for you |
+| ⌘1…⌘9 | go to a session |
+| ⌘↩ | expand / collapse |
+| ⌘W / ⌘. | close / stop a session with confirmation (in the main window); in a task window and in Settings ⌘W closes the window |
+| ⏎ / double-click | open the selected task or session archive |
+| ⌥← / ⌥→ | on the board: move the selected task to the adjacent column |
+| ⌃⌘S | show / hide the sidebar |
+| ⇧↩ | in a session terminal: new line in the agent prompt |
 
 </details>
 
-## Разработка
+## Development
 
-Нужны только Command Line Tools, Xcode не обязателен.
+Only the Command Line Tools are required; Xcode is not.
 
 ```sh
-scripts/build-app.sh            # → build/Artel.app (--install — ещё и в /Applications)
-scripts/test.sh                 # юнит-тесты
-scripts/release.sh 0.2.0        # релиз на GitHub; разовая настройка — в шапке скрипта
+scripts/build-app.sh            # → build/Artel.app (--install also copies it to /Applications)
+scripts/test.sh                 # unit tests
+scripts/release.sh 0.2.0        # GitHub release; one-time setup is in the script header
 ```
 
-Архитектура, отладочные переменные (`ARTEL_HOME`, `ARTEL_SNAPSHOT`…) и правила для кодовых агентов — в [CLAUDE.md](CLAUDE.md), продуктовая спецификация — в [docs/SPEC.md](docs/SPEC.md).
+Architecture, debug variables (`ARTEL_HOME`, `ARTEL_SNAPSHOT`…) and rules for coding agents are in [CLAUDE.md](CLAUDE.md); the product specification is in [docs/SPEC.md](docs/SPEC.md).
 
-## Лицензия
+## License
 
-[GNU GPL v3.0](LICENSE) © 2026 UxiT. GPL выбрана из-за редактора [STTextView](https://github.com/krzyzanowskim/STTextView), который линкуется в приложение статически. Лицензии остальных зависимостей (MIT, BSD, ISC) лежат в `Artel.app/Contents/Resources/Licenses/`.
+[GNU GPL v3.0](LICENSE) © 2026 UxiT. GPL was chosen because of the [STTextView](https://github.com/krzyzanowskim/STTextView) editor, which is linked into the app statically. Licenses of the other dependencies (MIT, BSD, ISC) are in `Artel.app/Contents/Resources/Licenses/`.

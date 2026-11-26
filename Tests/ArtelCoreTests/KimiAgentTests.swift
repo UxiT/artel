@@ -19,13 +19,13 @@ struct KimiAgentTests {
         #expect(cmd.contains(["--add-dir", "/tmp/t"]))
         #expect(!cmd.contains("--session"))
         #expect(!cmd.contains("--settings"))
-        #expect(!cmd.contains("сделай план"))  // промпт не идёт в argv — вставляется в TUI
+        #expect(!cmd.contains("сделай план"))  // the prompt is not in argv — it is typed into the TUI
     }
 
     @Test func resumeCommandUsesSessionFlag() {
         let cmd = KimiCodeAgent().command(for: spec(conversationID: "abc", resume: true))
         #expect(cmd.contains(["--session", "abc"]))
-        #expect(!cmd.contains("--model") == false)  // модель остаётся при resume
+        #expect(!cmd.contains("--model") == false)  // the model stays on resume
     }
 
     @Test func permissionModesMapToFlags() {
@@ -113,7 +113,7 @@ struct KimiAgentTests {
         let settings = try JSONDecoder.artel.decode(AppSettings.self, from: data)
         #expect(settings.defaultModel(for: ClaudeCodeAgent.id) == "opus")
         #expect(settings.defaultModel(for: KimiCodeAgent.id) == nil)
-        // и новое состояние кодируется без легаси-ключа
+        // and the new state encodes without the legacy key
         let encoded = try JSONEncoder.artel.encode(settings)
         #expect(!(String(data: encoded, encoding: .utf8) ?? "").contains("defaultModel\""))
     }
@@ -129,13 +129,13 @@ struct KimiAgentTests {
         var status = SessionStatus(activity: .ready)
         status = status.applying(HookEvent(artelSessionID: "a", name: "TurnStarted", clientType: "kimi_code_cli"))
         #expect(status.activity == .working)
-        // Фоновые задачи kimi (Notification) не переводят сессию в «ждёт ответа».
+        // kimi background tasks (Notification) don't put the session into "waiting for input".
         status = status.applying(HookEvent(artelSessionID: "a", name: "Notification",
                                            notificationType: "task.completed", clientType: "kimi_code_cli"))
         #expect(status.activity == .working)
         status = status.applying(HookEvent(artelSessionID: "a", name: "Interrupt", clientType: "kimi_code_cli"))
         #expect(status.activity == .ready)
-        // Уведомления Claude Code работают как раньше.
+        // Claude Code notifications work as before.
         var claude = SessionStatus(activity: .working)
         claude = claude.applying(HookEvent(artelSessionID: "a", name: "Notification",
                                            notificationType: "elicitation_dialog", message: "вопрос"))

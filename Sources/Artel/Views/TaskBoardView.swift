@@ -8,8 +8,8 @@ enum AppSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .workspace: "Workspace"
-        case .projects: "Проекты"
-        case .tasks: "Задачи"
+        case .projects: "Projects"
+        case .tasks: "Tasks"
         }
     }
     var symbol: String {
@@ -70,8 +70,8 @@ struct TaskBoardView: View {
         .background(Color(nsColor: .underPageBackgroundColor))
         .overlay {
             if model.state.projects.isEmpty {
-                ContentUnavailableView("Нет проектов", systemImage: "folder.badge.plus",
-                                       description: Text("Добавьте проект (⇧⌘O), чтобы завести задачи."))
+                ContentUnavailableView("No Projects", systemImage: "folder.badge.plus",
+                                       description: Text("Add a project (⇧⌘O) to create tasks."))
             }
         }
         .onChange(of: focusedCard) { _, id in
@@ -135,7 +135,7 @@ private struct BoardColumn: View {
                 LazyVStack(spacing: 8) {
                     ForEach(tasks) { BoardCard(task: $0, focusedCard: focusedCard) }
                     if tasks.isEmpty {
-                        Text(targeted ? "Отпустите, чтобы перенести" : "Пусто")
+                        Text(targeted ? "Release to move" : "Empty")
                             .font(.callout).foregroundStyle(.tertiary)
                             .frame(maxWidth: .infinity, minHeight: 60)
                     }
@@ -151,7 +151,7 @@ private struct BoardColumn: View {
                 .strokeBorder(targeted ? Color.accentColor : HairlineColor.border(contrast), lineWidth: targeted ? 2 : 1)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(status.title), задач: \(tasks.count)")
+        .accessibilityLabel("\(status.title), tasks: \(tasks.count)")
         // Drop a card here: the operator moves the task to this status (done with a worktree asks first).
         .dropDestination(for: String.self) { items, _ in
             guard let id = items.compactMap(DragPayload.taskID(from:)).first, let task = model.task(id),
@@ -180,7 +180,7 @@ private struct BoardCard: View {
                 Spacer(minLength: 0)
                 if task.worktree != nil {
                     Image(systemName: "arrow.triangle.branch").font(.caption).foregroundStyle(.secondary)
-                        .help("Своя ветка: \(task.branch ?? "")")
+                        .help("Own branch: \(task.branch ?? "")")
                 }
                 if model.launchingTasks.contains(task.id) {
                     ProgressView().controlSize(.mini)
@@ -215,17 +215,17 @@ private struct BoardCard: View {
         .onKeyPress(.space) { model.openTask(task.id); return .handled }
         .taskDragSource(task)
         .contextMenu {
-            Button("Открыть задачу") { model.openTask(task.id) }
+            Button("Open Task") { model.openTask(task.id) }
             Divider()
             TaskMenu(task: task)
         }
-        .help("Двойной клик или ⏎ — открыть")
+        .help("Double-click or press ⏎ to open")
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         .accessibilityLabel("\(task.taskID), \(task.title)")
-        .accessibilityValue([project?.name, activity.map { "сессия: \($0.title)" }].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityValue([project?.name, activity.map { "session: \($0.title)" }].compactMap { $0 }.joined(separator: ", "))
         .accessibilityAction { model.openTask(task.id) }
-        .accessibilityAction(named: "Запустить") { model.requestLaunch(taskID: task.id, intoSession: nil) }
+        .accessibilityAction(named: "Launch") { model.requestLaunch(taskID: task.id, intoSession: nil) }
     }
 
     private func select() {

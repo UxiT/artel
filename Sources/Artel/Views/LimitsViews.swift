@@ -18,7 +18,7 @@ struct LimitsIndicator: View {
             HStack(spacing: 0) {
                 if usage.visibleStates.isEmpty {
                     // Nothing selected: keep a handle to the popover, where agents can be selected again.
-                    Label("Лимиты", systemImage: "gauge.with.dots.needle.50percent")
+                    Label("Limits", systemImage: "gauge.with.dots.needle.50percent")
                         .font(.caption)
                         .labelStyle(.titleAndIcon)
                         .padding(.vertical, 2)
@@ -30,7 +30,7 @@ struct LimitsIndicator: View {
             }
         }
         .buttonStyle(.plain)
-        .help("Лимиты подписок ИИ")
+        .help("AI subscription limits")
         .popover(isPresented: $showDetails, arrowEdge: .top) { LimitsDetails().environment(model) }
     }
 }
@@ -45,17 +45,17 @@ private struct LimitsHeadline: View {
                 .labelStyle(.titleAndIcon)
             switch state.status {
             case .noCredentials:
-                Text("Нет логина").font(.caption).foregroundStyle(.secondary)
+                Text("Not signed in").font(.caption).foregroundStyle(.secondary)
             case .needsLogin:
-                Text("Войдите в CLI").font(.caption).foregroundStyle(.orange)
+                Text("Sign in to the CLI").font(.caption).foregroundStyle(.orange)
             default:
                 if state.headline.isEmpty {
                     HStack(spacing: 4) {
                         if state.status == .loading { ProgressView().controlSize(.mini) }
-                        Text("Лимиты").font(.caption).foregroundStyle(.secondary)
+                        Text("Limits").font(.caption).foregroundStyle(.secondary)
                     }
                 } else {
-                    // One line: «5ч ▬ 34%   7д ▬ 5%».
+                    // One line: "5h ▬ 34%   7d ▬ 5%".
                     HStack(spacing: 10) {
                         ForEach(state.headline) { w in
                             HStack(spacing: 4) {
@@ -71,7 +71,7 @@ private struct LimitsHeadline: View {
                                     .frame(width: 28, alignment: .trailing)
                             }
                             .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("\(w.label): использовано \(Int(w.usedPercent.rounded()))%")
+                            .accessibilityLabel("\(w.label): \(Int(w.usedPercent.rounded()))% used")
                         }
                     }
                 }
@@ -91,14 +91,14 @@ struct LimitsDetails: View {
         let usage = model.usage
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Лимиты ИИ").font(.headline)
+                Text("AI Limits").font(.headline)
                 Spacer()
-                Button { usage.refreshNow() } label: { Label("Обновить", systemImage: "arrow.clockwise").labelStyle(.iconOnly) }
+                Button { usage.refreshNow() } label: { Label("Refresh", systemImage: "arrow.clockwise").labelStyle(.iconOnly) }
                     .buttonStyle(.borderless)
-                    .help("Обновить")
+                    .help("Refresh")
             }
             HStack(spacing: 14) {
-                Text("Показывать:").font(.caption).foregroundStyle(.secondary)
+                Text("Show:").font(.caption).foregroundStyle(.secondary)
                 ForEach(usage.availableAgentIDs, id: \.self) { id in
                     Toggle(usage.state(for: id).title, isOn: visibilityBinding(id))
                         .toggleStyle(.checkbox)
@@ -106,7 +106,7 @@ struct LimitsDetails: View {
                 }
             }
             if usage.visibleStates.isEmpty {
-                Text("Выберите хотя бы одного агента, чтобы увидеть его лимиты.")
+                Text("Select at least one agent to see its limits.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             ForEach(Array(usage.visibleStates.enumerated()), id: \.element.id) { index, state in
@@ -126,23 +126,23 @@ struct LimitsDetails: View {
                             HStack {
                                 Text(w.label)
                                 Spacer()
-                                Text("\(Int(w.usedPercent.rounded()))% использовано")
+                                Text("\(Int(w.usedPercent.rounded()))% used")
                                     .monospacedDigit().foregroundStyle(.secondary)
                             }
                             .font(.callout)
                             ProgressView(value: w.usedPercent, total: 100).tint(w.tint)
                             if let reset = w.resetsAt {
-                                Text("Сброс через \(formatDuration(reset.timeIntervalSinceNow)) · \(reset.formatted(date: .omitted, time: .shortened))")
+                                Text("Resets in \(formatDuration(reset.timeIntervalSinceNow)) · \(reset.formatted(date: .omitted, time: .shortened))")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
                     }
                     if state.windows.isEmpty && state.status == .ok {
-                        Text("API не вернул окна лимитов.").font(.caption).foregroundStyle(.secondary)
+                        Text("The API returned no limit windows.").font(.caption).foregroundStyle(.secondary)
                     }
                     LimitStatusMessage(state: state)
                     if let at = state.updatedAt {
-                        Text("Обновлено \(at.formatted(date: .omitted, time: .standard))")
+                        Text("Updated \(at.formatted(date: .omitted, time: .standard))")
                             .font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
@@ -168,16 +168,16 @@ private struct LimitStatusMessage: View {
         switch state.status {
         case .noCredentials:
             Text(state.id == KimiCodeAgent.id
-                 ? "Не найден логин Kimi Code. Запустите `kimi` и войдите (/login)."
-                 : "Не найден логин Claude Code. Запустите `claude` и войдите (/login). Если macOS спрашивала доступ к связке ключей — нажмите «Обновить» и разрешите его.")
+                 ? "No Kimi Code login found. Run `kimi` and sign in (/login)."
+                 : "No Claude Code login found. Run `claude` and sign in (/login). If macOS asked for Keychain access, click Refresh and allow it.")
                 .font(.caption).foregroundStyle(.secondary)
         case .needsLogin:
             Text(state.id == KimiCodeAgent.id
-                 ? "Токен Kimi Code не принят. Войдите заново: `kimi` → /login."
-                 : "Токен Claude Code не принят. Войдите заново: `claude` → /login.")
+                 ? "Kimi Code rejected the token. Sign in again: `kimi` → /login."
+                 : "Claude Code rejected the token. Sign in again: `claude` → /login.")
                 .font(.caption).foregroundStyle(.orange)
         case .error(let message):
-            Text("Не удалось обновить: \(message). Показаны последние данные.")
+            Text("Couldn't refresh: \(message). Showing the last data.")
                 .font(.caption).foregroundStyle(.orange)
         default:
             EmptyView()
@@ -191,25 +191,25 @@ struct LimitsSettingsView: View {
     var body: some View {
         @Bindable var model = model
         Form {
-            Toggle("Показывать лимиты подписки", isOn: $model.state.settings.limits.enabled)
-            Section("Агенты в общем сегменте") {
+            Toggle("Show subscription limits", isOn: $model.state.settings.limits.enabled)
+            Section("Agents in the Shared Segment") {
                 ForEach(model.usage.availableAgentIDs, id: \.self) { id in
                     Toggle(model.usage.state(for: id).title, isOn: visibilityBinding(id))
                         .toggleStyle(.checkbox)
                         .disabled(!model.state.settings.limits.enabled)
                 }
             }
-            Text("Здесь только включённые агенты — список задаётся в «Основных» настройках.")
+            Text("Only enabled agents are listed here; the list is set in General settings.")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("Artel только читает существующие логины Claude Code и Kimi Code и запрашивает те же API, что и CLI. Для Claude macOS при первом запросе спросит доступ к связке ключей — выберите «Разрешать всегда».")
+            Text("Artel only reads the existing Claude Code and Kimi Code logins and calls the same APIs as the CLIs. For Claude, macOS asks for Keychain access on the first request; choose Always Allow.")
                 .font(.caption).foregroundStyle(.secondary)
-            Picker("Обновлять каждые", selection: $model.state.settings.limits.intervalMinutes) {
-                ForEach([1, 2, 5, 10, 15, 30], id: \.self) { Text("\($0) мин").tag($0) }
+            Picker("Refresh every", selection: $model.state.settings.limits.intervalMinutes) {
+                ForEach([1, 2, 5, 10, 15, 30], id: \.self) { Text("\($0) min").tag($0) }
             }
             .disabled(!model.state.settings.limits.enabled)
-            Toggle("Уведомлять, когда лимит почти исчерпан", isOn: $model.state.settings.limits.alerts)
+            Toggle("Notify when a limit is nearly used up", isOn: $model.state.settings.limits.alerts)
                 .disabled(!model.state.settings.limits.enabled)
-            Picker("Порог (осталось меньше)", selection: $model.state.settings.limits.thresholdRemaining) {
+            Picker("Threshold (remaining below)", selection: $model.state.settings.limits.thresholdRemaining) {
                 ForEach([5, 10, 15, 20, 25, 30, 50], id: \.self) { Text("\($0)%").tag($0) }
             }
             .disabled(!model.state.settings.limits.enabled || !model.state.settings.limits.alerts)

@@ -15,14 +15,14 @@ struct AddProjectSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Добавление проекта «\(pending.url.lastPathComponent)»").font(.title3.bold())
+            Text("Add Project “\(pending.url.lastPathComponent)”").font(.title3.bold())
             Text(pending.url.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
 
             if notGit {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 4) {
-                        Toggle("Выполнить `git init`", isOn: $initGit)
-                        Text("Папка не git-репозиторий. Без git задачи работают прямо в папке проекта: отдельный worktree и просмотр изменений недоступны.")
+                        Toggle("Run `git init`", isOn: $initGit)
+                        Text("The folder isn't a git repository. Without git, tasks run directly in the project folder: separate worktrees and change review are unavailable.")
                             .font(.caption).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -31,31 +31,31 @@ struct AddProjectSheet: View {
             }
             if offersClaudeMD {
                 Text(missingClaudeMD
-                     ? "В проекте нет CLAUDE.md — Claude Code читает его в каждой сессии. Заполните описание или добавьте проект без него: создать файл можно позже в разделе «Проекты»."
-                     : "CLAUDE.md пустой. Заполните описание проекта или добавьте проект как есть.")
+                     ? "The project has no CLAUDE.md — Claude Code reads it in every session. Fill in a description or add the project without it: you can create the file later in the Projects section."
+                     : "CLAUDE.md is empty. Fill in a project description or add the project as is.")
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
                 MarkdownEditor(text: $text)
             }
             HStack {
                 if offersClaudeMD && !ProjectValidator.hasDescription(text) {
-                    Label("Чтобы сохранить CLAUDE.md, добавьте текст описания", systemImage: "exclamationmark.circle")
+                    Label("Add a description to save CLAUDE.md", systemImage: "exclamationmark.circle")
                         .font(.caption).foregroundStyle(.orange)
                 }
                 Spacer()
-                Button("Отмена") { model.pendingProject = nil; dismiss() }
+                Button("Cancel") { model.pendingProject = nil; dismiss() }
                     .keyboardShortcut(.cancelAction)
                 if offersClaudeMD {
-                    Button(missingClaudeMD ? "Добавить без CLAUDE.md" : "Добавить как есть") {
+                    Button(missingClaudeMD ? "Add Without CLAUDE.md" : "Add As Is") {
                         model.completePendingProject(pending, claudeMD: nil, initGit: initGit)
                     }
-                    Button("Сохранить и добавить") {
+                    Button("Save and Add") {
                         model.completePendingProject(pending, claudeMD: text, initGit: initGit)
                     }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!ProjectValidator.hasDescription(text))
                 } else {
-                    Button("Добавить") {
+                    Button("Add") {
                         model.completePendingProject(pending, claudeMD: nil, initGit: initGit)
                     }
                     .keyboardShortcut(.defaultAction)
@@ -100,45 +100,45 @@ struct NewSessionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Новая сессия").font(.title3.bold())
+            Text("New Session").font(.title3.bold())
             Form {
-                Picker("Проект", selection: $projectID) {
+                Picker("Project", selection: $projectID) {
                     ForEach(model.state.projects) { p in
                         Text(p.name).tag(Optional(p.id))
                     }
                 }
-                TextField("Название", text: $name)
-                Picker("Агент", selection: $agentID) {
+                TextField("Name", text: $name)
+                Picker("Agent", selection: $agentID) {
                     ForEach(model.enabledAgents, id: \.agentID) { agent in
                         Text(agent.displayName).tag(agent.agentID)
                     }
                 }
-                Picker("Модель", selection: $model_) {
+                Picker("Model", selection: $model_) {
                     ForEach(agent.models) { m in Text(m.title).tag(m.id) }
-                    Text("Другая…").tag(Optional(customTag))
+                    Text("Other…").tag(Optional(customTag))
                 }
                 if model_ == customTag {
-                    TextField("Id модели", text: $customModel, prompt: Text(agent.agentID == KimiCodeAgent.id
-                            ? "например, kimi-code/k3" : "например, claude-opus-5-5"))
+                    TextField("Model ID", text: $customModel, prompt: Text(agent.agentID == KimiCodeAgent.id
+                            ? "e.g. kimi-code/k3" : "e.g. claude-opus-5-5"))
                 }
-                Picker("Разрешения", selection: $permissionMode) {
+                Picker("Permissions", selection: $permissionMode) {
                     ForEach(agent.permissionModes, id: \.self) { Text($0).tag($0) }
                 }
-                Toggle("Сохранять в архив сессий без задачи", isOn: $archivesNoTask)
-                    .help("Копии лога хуков и транскрипта агента в .artel/no-task/ — чтобы потом посмотреть сессию или добавить её на доску. Хранятся 7 дней.")
+                Toggle("Save to the no-task archive", isOn: $archivesNoTask)
+                    .help("Copies of the hook log and the agent transcript in .artel/no-task/, so you can review the session later or add it to the board. Kept for 7 days.")
             }
             .formStyle(.grouped)
             .scrollDisabled(true)
             .fixedSize(horizontal: false, vertical: true)
             .onChange(of: agentID) { _, _ in applyAgentDefaults() }
 
-            Text("Первый промпт (необязательно)").font(.callout)
+            Text("First prompt (optional)").font(.callout)
             MarkdownEditor(text: $prompt).frame(minHeight: 120)
 
             HStack {
                 Spacer()
-                Button("Отмена") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Запустить") { start() }
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Launch") { start() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(projectID == nil || (model_ == customTag && customModel.trimmingCharacters(in: .whitespaces).isEmpty))
             }
@@ -155,7 +155,7 @@ struct NewSessionSheet: View {
     }
 
     private func applyAgentDefaults() {
-        // Переход на другого агента: списки моделей и режимов другие — сбрасываем выбор.
+        // Switching agents: the model and mode lists differ, so reset the selection.
         permissionMode = agent.permissionModes.contains(permissionMode) ? permissionMode
             : (agent.permissionModes.first ?? "auto")
         let preset = projectID.flatMap({ model.project($0) })?.defaultModel
@@ -199,46 +199,46 @@ struct ProjectSettingsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Настройки проекта").font(.title3.bold())
+            Text("Project Settings").font(.title3.bold())
             Form {
-                TextField("Название", text: $project.name)
-                LabeledContent("Папка") { Text(project.path).textSelection(.enabled).foregroundStyle(.secondary) }
-                LabeledContent("Цвет") {
+                TextField("Name", text: $project.name)
+                LabeledContent("Folder") { Text(project.path).textSelection(.enabled).foregroundStyle(.secondary) }
+                LabeledContent("Color") {
                     ColorSwatches(selection: $project.colorIndex)
                 }
-                Picker("Режим разрешений", selection: $project.permissionMode) {
+                Picker("Permission Mode", selection: $project.permissionMode) {
                     ForEach(model.agent.permissionModes, id: \.self) { Text($0).tag($0) }
                 }
-                Picker("Модель по умолчанию", selection: $project.defaultModel) {
+                Picker("Default Model", selection: $project.defaultModel) {
                     ForEach(model.agent.models) { m in Text(m.title).tag(m.id) }
                 }
-                TextField("Префикс задач", text: $project.taskPrefix)
+                TextField("Task Prefix", text: $project.taskPrefix)
                 if project.isGitRepository {
-                    TextField("Базовая ветка", text: Binding(get: { project.baseBranch ?? "" },
+                    TextField("Base Branch", text: Binding(get: { project.baseBranch ?? "" },
                                                              set: { project.baseBranch = $0.isEmpty ? nil : $0 }),
-                              prompt: Text("текущая ветка репозитория"))
+                              prompt: Text("current repository branch"))
                 }
                 EditorSettingRow(editorPath: $project.editorPath)
                 DocsFolderRow(project: $project)
                 if project.isGitRepository {
-                    Toggle("Хранить .artel/ в git", isOn: $project.storeArtelInGit)
-                        .help("Выключено — .artel/ добавляется в .gitignore проекта")
+                    Toggle("Keep .artel/ in git", isOn: $project.storeArtelInGit)
+                        .help("When off, .artel/ is added to the project's .gitignore")
                 } else {
                     LabeledContent("Git") {
-                        Text("не репозиторий: задачи работают в папке проекта, без worktree и diff")
+                        Text("not a repository: tasks run in the project folder, without worktrees or diffs")
                             .foregroundStyle(.secondary)
                     }
                 }
             }
             .formStyle(.grouped)
             HStack {
-                Button("Документация…") {
+                Button("Documentation…") {
                     dismiss()
                     model.openProjectDocs(project.id, path: nil)
                 }
                 Spacer()
-                Button("Отмена") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Сохранить") {
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Save") {
                     project.name = project.name.trimmingCharacters(in: .whitespaces)
                     project.taskPrefix = project.taskPrefix.trimmingCharacters(in: .whitespaces).uppercased()
                     if project.taskPrefix.isEmpty { project.taskPrefix = "ARTEL" }
@@ -272,15 +272,15 @@ struct InstallSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             HStack {
                 if finished {
-                    Label(exitCode == 0 ? "Готово" : "Завершено с кодом \(exitCode.map(String.init) ?? "?")",
+                    Label(exitCode == 0 ? "Done" : "Exited with code \(exitCode.map(String.init) ?? "?")",
                           systemImage: exitCode == 0 ? "checkmark.circle.fill" : "xmark.octagon.fill")
                         .foregroundStyle(exitCode == 0 ? .green : .red)
                 } else {
                     ProgressView().controlSize(.small)
-                    Text("Выполняется…").foregroundStyle(.secondary)
+                    Text("Running…").foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(finished ? "Закрыть" : "Прервать") {
+                Button(finished ? "Close" : "Stop") {
                     dismiss()
                     Task { await model.recheckTools() }
                 }
@@ -325,16 +325,16 @@ private struct DocsFolderRow: View {
 
     var body: some View {
         let detected = DocsSite.detect(root: project.url)
-        LabeledContent("Документация") {
+        LabeledContent("Documentation") {
             HStack {
                 TextField("", text: Binding(get: { project.docsFolder ?? "" },
                                             set: { project.docsFolder = $0.isEmpty ? nil : DocsSite.normalizeFolder($0, root: project.url) ?? project.docsFolder }),
-                          prompt: Text(detected.map { "\($0) (найдена)" } ?? "docs"))
+                          prompt: Text(detected.map { "\($0) (detected)" } ?? "docs"))
                     .font(.body.monospaced())
-                Button("Выбрать…") { choose() }
+                Button("Choose…") { choose() }
             }
         }
-        .help("Папка со страницами документации внутри проекта. Пусто — найти самой (docs/, documentation/, website/docs). Хранится только в настройках Artel на этом компьютере.")
+        .help("The folder with documentation pages inside the project. Leave empty to detect it automatically (docs/, documentation/, website/docs). Stored only in Artel's settings on this Mac.")
     }
 
     private func choose() {
@@ -343,7 +343,7 @@ private struct DocsFolderRow: View {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.directoryURL = project.url
-        panel.prompt = "Выбрать"
+        panel.prompt = "Choose"
         if panel.runModal() == .OK, let url = panel.url, let folder = DocsSite.normalizeFolder(url.path, root: project.url) {
             project.docsFolder = folder
         }

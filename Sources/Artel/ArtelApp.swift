@@ -42,7 +42,7 @@ struct ArtelApp: App {
         .commands { ArtelCommands(model: model, updater: updater) }
 
         // The task window: not modal, so sessions stay usable while a task is open.
-        Window("Задача", id: TaskWindowScene.id) {
+        Window("Task", id: TaskWindowScene.id) {
             TaskWindowScene()
                 .environment(model)
         }
@@ -87,11 +87,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let model, !model.dirtyDocuments.isEmpty else { return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = "Сохранить изменения в документах (\(model.dirtyDocuments.count))?"
-        alert.informativeText = "Есть несохранённые правки в текстах задач или страницах документации."
-        alert.addButton(withTitle: "Сохранить")
-        alert.addButton(withTitle: "Не сохранять")
-        alert.addButton(withTitle: "Отмена")
+        alert.messageText = "Save changes to \(model.dirtyDocuments.count) \(model.dirtyDocuments.count == 1 ? "document" : "documents")?"
+        alert.informativeText = "You have unsaved edits in task texts or documentation pages."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Don't Save")
+        alert.addButton(withTitle: "Cancel")
         switch alert.runModal() {
         case .alertFirstButtonReturn: return model.saveAllDrafts() ? .terminateNow : .terminateCancel
         case .alertSecondButtonReturn: return .terminateNow
@@ -109,18 +109,18 @@ struct ArtelCommands: Commands {
             if updater.isEnabled { CheckForUpdatesButton(updater: updater) }
         }
         CommandGroup(replacing: .newItem) {
-            Button("Новая задача…") { model.requestNewTask() }
+            Button("New Task…") { model.requestNewTask() }
                 .keyboardShortcut("n")
                 .disabled(model.state.projects.isEmpty)
-            Button("Новая сессия с теми же настройками") { model.repeatLastSession() }
+            Button("New Session with Same Settings") { model.repeatLastSession() }
                 .keyboardShortcut("t")
                 .disabled(model.state.projects.isEmpty)
-            Button("Новая сессия без задачи…") { model.newSessionRequest = NewSessionRequest(projectID: model.focusedProjectID) }
+            Button("New Session Without Task…") { model.newSessionRequest = NewSessionRequest(projectID: model.focusedProjectID) }
                 .keyboardShortcut(AppShortcuts.newSessionWithoutTask.key, modifiers: AppShortcuts.newSessionWithoutTask.modifiers)
                 .disabled(model.state.projects.isEmpty)
-            Button("Добавить проект…") { ProjectPicker.present(model) }
+            Button("Add Project…") { ProjectPicker.present(model) }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
-            Button("Новая вкладка") { model.addTab() }
+            Button("New Tab") { model.addTab() }
                 .keyboardShortcut("t", modifiers: [.command, .option])
         }
         CommandGroup(replacing: .saveItem) {
@@ -136,37 +136,37 @@ struct ArtelCommands: Commands {
             }
             Divider()
         }
-        CommandMenu("Задачи") {
-            Button("Поиск") { model.request(focus: .search) }
+        CommandMenu("Tasks") {
+            Button("Search") { model.request(focus: .search) }
                 .keyboardShortcut("f")
-            Button("Запустить выбранную задачу…") {
+            Button("Launch Selected Task…") {
                 if let id = model.selectedTaskID { model.requestLaunch(taskID: id, intoSession: nil) }
             }
             .keyboardShortcut("r")
             .disabled(model.selectedTaskID == nil)
-            Button("Открыть задачу") { if let id = model.selectedTaskID { model.openTask(id) } }
+            Button("Open Task") { if let id = model.selectedTaskID { model.openTask(id) } }
                 .keyboardShortcut("o")
                 .disabled(model.selectedTaskID == nil)
             Divider()
-            Button("Закоммитить задачи (.artel)…") {
+            Button("Commit Tasks (.artel)…") {
                 if let id = model.focusedOrSelectedProjectID { model.requestCommit(projectID: id) }
             }
             .keyboardShortcut("s", modifiers: [.command, .option])
             .disabled(model.state.projects.isEmpty)
         }
         CommandMenu("Workspace") {
-            Button("Следующая, ждущая ответа") { model.focusNextAttention() }
+            Button("Next Session Waiting for You") { model.focusNextAttention() }
                 .keyboardShortcut("j")
                 .disabled(model.attentionSessions.isEmpty)
-            Button("Развернуть / свернуть") { model.toggleExpanded() }
+            Button("Expand / Collapse") { model.toggleExpanded() }
                 .keyboardShortcut(.return)
             Divider()
             ForEach(0..<9) { i in
-                Button("Сессия \(i + 1)") { model.focus(index: i) }
+                Button("Session \(i + 1)") { model.focus(index: i) }
                     .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")))
             }
             Divider()
-            Button("Остановить сессию…") { model.requestStopSession() }
+            Button("Stop Session…") { model.requestStopSession() }
                 .keyboardShortcut(".")
                 .disabled(model.focusedSessionID == nil && model.state.expandedSessionID == nil)
         }
@@ -179,8 +179,8 @@ enum ProjectPicker {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Добавить"
-        panel.message = "Выберите папку проекта"
+        panel.prompt = "Add"
+        panel.message = "Choose a project folder"
         if panel.runModal() == .OK, let url = panel.url { model.addProject(at: url) }
     }
 }

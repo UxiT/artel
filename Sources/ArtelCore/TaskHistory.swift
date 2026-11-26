@@ -6,8 +6,8 @@ public struct TaskHistoryEntry: Codable, Equatable, Sendable {
         case `operator`, agent, artel
         public var title: String {
             switch self {
-            case .operator: "Оператор"
-            case .agent: "Агент"
+            case .operator: "You"
+            case .agent: "Agent"
             case .artel: "Artel"
             }
         }
@@ -96,7 +96,7 @@ public enum TaskHistory {
         // Old workflow stages collapse into one status: their transitions may now read "X → X".
         var entries = load(from: task.directory).filter { $0.kind != .status || $0.from == nil || $0.from != $0.to }
         if !entries.contains(where: { $0.kind == .created }) {
-            entries.append(TaskHistoryEntry(date: task.created, actor: .operator, kind: .created, text: "Задача создана"))
+            entries.append(TaskHistoryEntry(date: task.created, actor: .operator, kind: .created, text: "Task created"))
         }
         return entries.enumerated().sorted { a, b in
             a.element.date != b.element.date ? a.element.date < b.element.date : a.offset < b.offset

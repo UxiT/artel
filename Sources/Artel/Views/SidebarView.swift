@@ -35,7 +35,7 @@ struct SidebarView: View {
         List(selection: Binding(get: { selection }, set: select)) {
             let waiting = model.attentionSessions
             if !waiting.isEmpty {
-                Section("Ждут ответа") {
+                Section("Waiting for You") {
                     ForEach(waiting) { SessionRow(record: $0, showProject: true).tag(SidebarItem.session($0.id)) }
                 }
             }
@@ -47,7 +47,7 @@ struct SidebarView: View {
                     Section(isExpanded: expansion(project.id)) {
                         ForEach(tasks) { TaskRow(task: $0).tag(SidebarItem.task($0.id)) }
                         if tasks.isEmpty {
-                            Text(model.sidebarFilter.isDefault ? "Нет задач" : "Нет задач по фильтру")
+                            Text(model.sidebarFilter.isDefault ? "No Tasks" : "No Tasks Match the Filters")
                                 .font(.caption).foregroundStyle(.tertiary)
                                 .selectionDisabled()
                         }
@@ -65,10 +65,10 @@ struct SidebarView: View {
                             )) {
                                 ForEach(archives) { NoTaskRow(task: $0).tag(SidebarItem.archive($0.id)) }
                             } label: {
-                                Label("Без задачи", systemImage: "archivebox")
+                                Label("No Task", systemImage: "archivebox")
                                     .badge(archives.count)
                                     .foregroundStyle(.secondary)
-                                    .help("Архивы сессий без задачи хранятся 7 дней")
+                                    .help("Archives of sessions without a task are kept for 7 days")
                             }
                             .selectionDisabled()
                         }
@@ -80,10 +80,10 @@ struct SidebarView: View {
             }
             if model.state.projects.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Нет проектов").font(.headline)
-                    Text("Добавьте папку проекта или перетащите её сюда из Finder.")
+                    Text("No Projects").font(.headline)
+                    Text("Add a project folder or drag one here from Finder.")
                         .font(.callout).foregroundStyle(.secondary)
-                    Button("Добавить проект…") { ProjectPicker.present(model) }
+                    Button("Add Project…") { ProjectPicker.present(model) }
                 }
                 .padding(.vertical, 8)
                 .selectionDisabled()
@@ -145,7 +145,7 @@ private struct SidebarItemMenu: View {
         switch item {
         case .task(let id):
             if let task = model.task(id) {
-                Button("Открыть задачу") { model.openTask(id) }
+                Button("Open Task") { model.openTask(id) }
                 Divider()
                 TaskMenu(task: task)
             }
@@ -153,10 +153,10 @@ private struct SidebarItemMenu: View {
             if let record = model.record(id) { SessionMenu(record: record) }
         case .archive(let id):
             if let archive = model.noTask(id) {
-                Button("Открыть обзор") { model.openNoTask(archive.id) }
-                Button("Добавить на доску") { model.convertNoTask(archive) }
-                Button("Показать лог в Finder") { model.revealNoTaskLog(archive) }
-                Button("Показать папку в Finder") { NSWorkspace.shared.open(archive.directory) }
+                Button("Open Overview") { model.openNoTask(archive.id) }
+                Button("Add to Board") { model.convertNoTask(archive) }
+                Button("Show Log in Finder") { model.revealNoTaskLog(archive) }
+                Button("Show Folder in Finder") { NSWorkspace.shared.open(archive.directory) }
             }
         }
     }
@@ -173,14 +173,14 @@ struct ProjectListSidebar: View {
             model.docsPath = nil  // the project's docs home page
             model.docsSearch = ""
         })) {
-            Section("Проекты") {
+            Section("Projects") {
                 ForEach(model.state.projects) { project in
                     let open = model.tasks.filter { $0.projectID == project.id && !$0.status.isClosed }.count
                     let sessions = model.sessions(of: project).count
                     Label {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(project.name)
-                            Text("задач: \(open) · сессий: \(sessions)")
+                            Text("tasks: \(open) · sessions: \(sessions)")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     } icon: {
@@ -188,13 +188,13 @@ struct ProjectListSidebar: View {
                     }
                     .tag(project.id)
                     .help(project.path)
-                    .accessibilityLabel("\(project.name), открытых задач \(open), сессий \(sessions)")
+                    .accessibilityLabel("\(project.name), open tasks: \(open), sessions: \(sessions)")
                     .contextMenu {
-                        Button("Настройки проекта…") { model.projectSettingsID = project.id }
-                        Button("Открыть в редакторе кода") { model.openInEditor(projectID: project.id, root: project.url) }
-                        Button("Показать в Finder") { NSWorkspace.shared.activateFileViewerSelecting([project.url]) }
+                        Button("Project Settings…") { model.projectSettingsID = project.id }
+                        Button("Open in Code Editor") { model.openInEditor(projectID: project.id, root: project.url) }
+                        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([project.url]) }
                         Divider()
-                        Button("Убрать проект из Artel", role: .destructive) { model.removeProject(project) }
+                        Button("Remove Project from Artel", role: .destructive) { model.removeProject(project) }
                     }
                 }
             }
@@ -202,9 +202,9 @@ struct ProjectListSidebar: View {
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) {
             HStack {
-                Button { ProjectPicker.present(model) } label: { Label("Добавить проект", systemImage: "plus") }
+                Button { ProjectPicker.present(model) } label: { Label("Add Project", systemImage: "plus") }
                     .buttonStyle(.glass)
-                    .help("Добавить проект (⇧⌘O) — или перетащите папку из Finder")
+                    .help("Add a project (⇧⌘O), or drag a folder from Finder")
                 Spacer()
             }
             .padding(10)
@@ -219,14 +219,14 @@ struct FilterMenu: View {
 
     var body: some View {
         Menu {
-            Section("Проекты") {
+            Section("Projects") {
                 ForEach(model.state.projects) { p in
                     toggle(p.name, model.taskFilter.projects.contains(p.id)) {
                         model.taskFilter.projects.formSymmetricDifference([p.id])
                     }
                 }
             }
-            Section("Статусы") {
+            Section("Statuses") {
                 ForEach(TaskStatus.allCases) { s in
                     toggle(s.title, model.taskFilter.statuses.contains(s)) {
                         model.taskFilter.statuses.formSymmetricDifference([s])
@@ -234,13 +234,13 @@ struct FilterMenu: View {
                 }
             }
             Divider()
-            Button("Показать все статусы") { model.taskFilter.statuses = Set(TaskStatus.allCases) }
-            Button("Сбросить фильтры") { model.taskFilter = TaskFilter(search: model.taskFilter.search) }
+            Button("Show All Statuses") { model.taskFilter.statuses = Set(TaskStatus.allCases) }
+            Button("Reset Filters") { model.taskFilter = TaskFilter(search: model.taskFilter.search) }
         } label: {
-            Label("Фильтры", systemImage: model.taskFilter.isDefault ? "line.3.horizontal.decrease.circle"
+            Label("Filters", systemImage: model.taskFilter.isDefault ? "line.3.horizontal.decrease.circle"
                                                                     : "line.3.horizontal.decrease.circle.fill")
         }
-        .help(model.taskFilter.isDefault ? "Фильтры: проекты и статусы" : "Фильтры включены")
+        .help(model.taskFilter.isDefault ? "Filters: projects and statuses" : "Filters are on")
     }
 
     private func toggle(_ title: String, _ on: Bool, action: @escaping () -> Void) -> some View {
@@ -265,25 +265,25 @@ struct TaskRow: View {
             Spacer(minLength: 4)
             if task.worktree != nil {
                 Image(systemName: "arrow.triangle.branch").font(.caption2).foregroundStyle(.secondary)
-                    .help("Своя ветка: \(task.branch ?? "")")
+                    .help("Own branch: \(task.branch ?? "")")
                     .accessibilityHidden(true)
             }
             if let activity {
                 Image(systemName: activity.symbol)
                     .foregroundStyle(activity.color)
-                    .help("Сессия: \(activity.title)")
+                    .help("Session: \(activity.title)")
             } else if model.launchingTasks.contains(task.id) {
                 ProgressView().controlSize(.mini)
             }
         }
         .padding(.vertical, 2)
         .taskDragSource(task)
-        .help(blocker.map { "\($0). Двойной клик или ⏎ — открыть" }
-              ?? "Двойной клик или ⏎ — открыть. Перетащите в рабочую область, чтобы запустить")
+        .help(blocker.map { "\($0). Double-click or press ⏎ to open" }
+              ?? "Double-click or press ⏎ to open. Drag to the workspace to launch")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(task.taskID), \(task.title)")
-        .accessibilityValue([task.status.title, activity.map { "сессия: \($0.title)" }].compactMap { $0 }.joined(separator: ", "))
-        .accessibilityAction(named: "Открыть") { model.openTask(task.id) }
+        .accessibilityValue([task.status.title, activity.map { "session: \($0.title)" }].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityAction(named: "Open") { model.openTask(task.id) }
     }
 }
 
@@ -292,12 +292,12 @@ struct TaskMenu: View {
     let task: ArtelTask
 
     var body: some View {
-        Button("Запустить в новой сессии…") { model.requestLaunch(taskID: task.id, intoSession: nil) }
+        Button("Launch in New Session…") { model.requestLaunch(taskID: task.id, intoSession: nil) }
             .disabled(model.launchBlocker(for: task) != nil)
         if let s = model.activeSession(for: task) {
-            Button("Перейти к сессии") { model.focus(s.id) }
+            Button("Go to Session") { model.focus(s.id) }
         }
-        Menu("Статус") {
+        Menu("Status") {
             ForEach(TaskStatus.allCases) { s in
                 Button { model.setStatus(task, s) } label: {
                     if s == task.status { Label(s.title, systemImage: "checkmark") } else { Text(s.title) }
@@ -305,8 +305,8 @@ struct TaskMenu: View {
             }
         }
         Divider()
-        Button("Открыть код в редакторе") { model.openInEditor(projectID: task.projectID, root: model.codeRoot(for: task)) }
-        Button("Показать в Finder") { NSWorkspace.shared.activateFileViewerSelecting([task.file]) }
+        Button("Open Code in Editor") { model.openInEditor(projectID: task.projectID, root: model.codeRoot(for: task)) }
+        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([task.file]) }
     }
 }
 
@@ -326,40 +326,40 @@ struct ProjectHeader: View {
             if !isExpanded && hiddenSessions > 0 {
                 Text("\(hiddenSessions)")
                     .font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                    .help("Сессий в свёрнутом проекте: \(hiddenSessions)")
+                    .help("Sessions in the collapsed project: \(hiddenSessions)")
             }
             Spacer()
             if model.artelDirty.contains(project.id) {
                 Button { model.requestCommit(projectID: project.id) } label: {
-                    Label("Закоммитить .artel", systemImage: "arrow.up.doc").labelStyle(.iconOnly).foregroundStyle(.orange)
+                    Label("Commit .artel", systemImage: "arrow.up.doc").labelStyle(.iconOnly).foregroundStyle(.orange)
                 }
                 .buttonStyle(.borderless)
-                .help("Есть незакоммиченные изменения в .artel/ — закоммитить (⌥⌘S)")
+                .help("There are uncommitted changes in .artel/. Commit them (⌥⌘S)")
             }
             Button {
                 model.newSessionRequest = NewSessionRequest(projectID: project.id)
-            } label: { Label("Новая сессия", systemImage: "terminal").labelStyle(.iconOnly) }
+            } label: { Label("New Session", systemImage: "terminal").labelStyle(.iconOnly) }
                 .buttonStyle(.borderless)
-                .help("Новая сессия без задачи (\(AppShortcuts.newSessionWithoutTask.display))")
+                .help("New session without a task (\(AppShortcuts.newSessionWithoutTask.display))")
                 .disabled(!model.isReady)
                 .opacity(hovering ? 1 : 0)
                 .accessibilityHidden(!hovering)
         }
         .onHover { hovering = $0 }
         .accessibilityElement(children: .contain)
-        .accessibilityAction(named: "Новая сессия") { model.newSessionRequest = NewSessionRequest(projectID: project.id) }
+        .accessibilityAction(named: "New Session") { model.newSessionRequest = NewSessionRequest(projectID: project.id) }
         .help(project.path)
         .contextMenu {
-            Button(isExpanded ? "Свернуть проект" : "Развернуть проект") { withAnimation { isExpanded.toggle() } }
+            Button(isExpanded ? "Collapse Project" : "Expand Project") { withAnimation { isExpanded.toggle() } }
             Divider()
-            Button("Новая сессия…") { model.newSessionRequest = NewSessionRequest(projectID: project.id) }
-            Button("Закоммитить задачи (.artel)…") { model.requestCommit(projectID: project.id) }
-            Button("Настройки проекта…") { model.projectSettingsID = project.id }
-            Button("Документация…") { model.openProjectDocs(project.id, path: nil) }
-            Button("Открыть в редакторе кода") { model.openInEditor(projectID: project.id, root: project.url) }
-            Button("Показать в Finder") { NSWorkspace.shared.activateFileViewerSelecting([project.url]) }
+            Button("New Session…") { model.newSessionRequest = NewSessionRequest(projectID: project.id) }
+            Button("Commit Tasks (.artel)…") { model.requestCommit(projectID: project.id) }
+            Button("Project Settings…") { model.projectSettingsID = project.id }
+            Button("Documentation…") { model.openProjectDocs(project.id, path: nil) }
+            Button("Open in Code Editor") { model.openInEditor(projectID: project.id, root: project.url) }
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([project.url]) }
             Divider()
-            Button("Убрать проект из Artel", role: .destructive) { model.removeProject(project) }
+            Button("Remove Project from Artel", role: .destructive) { model.removeProject(project) }
         }
     }
 }
@@ -374,22 +374,22 @@ struct NoTaskRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(task.title).lineLimit(2)
                 HStack(spacing: 4) {
-                    Text("Архив")
+                    Text("Archive")
                     SinceText(date: task.updated)
                 }
                 .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
             Button { model.convertNoTask(task) } label: {
-                Label("Добавить на доску", systemImage: "plus.square.on.square").labelStyle(.iconOnly)
+                Label("Add to Board", systemImage: "plus.square.on.square").labelStyle(.iconOnly)
             }
             .buttonStyle(.borderless)
-            .help("Создать номерную задачу и добавить на доску")
+            .help("Create a numbered task and add it to the board")
         }
         .padding(.vertical, 2)
-        .help("Двойной клик или ⏎ — обзор сессии и её файлы")
+        .help("Double-click or press ⏎ to see the session overview and its files")
         .accessibilityElement(children: .combine)
-        .accessibilityAction(named: "Открыть обзор") { model.openNoTask(task.id) }
+        .accessibilityAction(named: "Open Overview") { model.openNoTask(task.id) }
     }
 }
 
@@ -419,7 +419,7 @@ struct SessionRow: View {
             SinceText(date: status.since).font(.caption2).foregroundStyle(.tertiary)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityAction(named: "Перейти к сессии") { model.focus(record.id) }
+        .accessibilityAction(named: "Go to Session") { model.focus(record.id) }
     }
 }
 
@@ -428,53 +428,53 @@ struct SessionMenu: View {
     let record: SessionRecord
 
     var body: some View {
-        Button(model.state.expandedSessionID == record.id ? "Свернуть" : "Развернуть") { model.toggleExpanded(record.id) }
-        Menu("Размер в сетке") {
+        Button(model.state.expandedSessionID == record.id ? "Collapse" : "Expand") { model.toggleExpanded(record.id) }
+        Menu("Grid Size") {
             ForEach(1...3, id: \.self) { n in
                 Button { model.resize(session: record.id, columnSpan: n, rowSpan: record.rowSpan) } label: {
-                    let title = "Ширина: \(n) \(n == 1 ? "колонка" : "колонки")"
+                    let title = "Width: \(n) \(n == 1 ? "Column" : "Columns")"
                     if record.columnSpan == n { Label(title, systemImage: "checkmark") } else { Text(title) }
                 }
             }
             Divider()
             ForEach(1...2, id: \.self) { n in
                 Button { model.resize(session: record.id, columnSpan: record.columnSpan, rowSpan: n) } label: {
-                    let title = "Высота: \(n) \(n == 1 ? "ряд" : "ряда")"
+                    let title = "Height: \(n) \(n == 1 ? "Row" : "Rows")"
                     if record.rowSpan == n { Label(title, systemImage: "checkmark") } else { Text(title) }
                 }
             }
             if record.columnSpan > 1 || record.rowSpan > 1 {
                 Divider()
-                Button("Сбросить размер") { model.resize(session: record.id, columnSpan: 1, rowSpan: 1) }
+                Button("Reset Size") { model.resize(session: record.id, columnSpan: 1, rowSpan: 1) }
             }
         }
         if record.taskID == nil {
-            Toggle("Сохранять в архив", isOn: Binding(
+            Toggle("Keep in Archive", isOn: Binding(
                 get: { model.record(record.id)?.archivesNoTask ?? record.archivesNoTask },
                 set: { model.setArchivesNoTask($0, sessionID: record.id) }))
             if model.noTask(sessionID: record.id) != nil {
-                Button("Добавить на доску как задачу") { model.convertNoTask(sessionID: record.id) }
+                Button("Add to Board as Task") { model.convertNoTask(sessionID: record.id) }
             }
         }
         if model.state.tabs.count > 1 {
-            Menu("Переместить во вкладку") {
+            Menu("Move to Tab") {
                 ForEach(model.state.tabs.filter { $0.id != (record.tabID ?? model.state.tabs.first?.id) }) { tab in
                     Button(tab.title) { model.move(session: record.id, toTab: tab.id) }
                 }
             }
         }
         if model.status(record.id).activity == .exited {
-            Button("Перезапустить") { model.relaunch(record) }
+            Button("Relaunch") { model.relaunch(record) }
         }
-        Button("Открыть в редакторе кода") {
+        Button("Open in Code Editor") {
             model.openInEditor(projectID: record.projectID, root: URL(fileURLWithPath: record.cwd))
         }
         Divider()
-        Button("Остановить…", role: .destructive) { model.sessionToStop = record }
+        Button("Stop…", role: .destructive) { model.sessionToStop = record }
     }
 }
 
-/// "5 мин", refreshed periodically.
+/// "5 min", refreshed periodically.
 struct SinceText: View {
     let date: Date
 
@@ -486,10 +486,10 @@ struct SinceText: View {
 
     static func format(_ seconds: TimeInterval) -> String {
         let s = max(0, Int(seconds))
-        if s < 60 { return "сейчас" }
-        if s < 3600 { return "\(s / 60) мин" }
-        if s < 86400 { return "\(s / 3600) ч \(s % 3600 / 60) мин" }
-        return "\(s / 86400) д"
+        if s < 60 { return "now" }
+        if s < 3600 { return "\(s / 60) min" }
+        if s < 86400 { return "\(s / 3600) h \(s % 3600 / 60) min" }
+        return "\(s / 86400) d"
     }
 }
 

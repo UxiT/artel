@@ -39,7 +39,7 @@ struct CheckForUpdatesButton: View {
     @ObservedObject var updater: Updater
 
     var body: some View {
-        Button("Проверить обновления…") { updater.checkForUpdates() }
+        Button("Check for Updates…") { updater.checkForUpdates() }
             .disabled(!updater.canCheckForUpdates)
     }
 }

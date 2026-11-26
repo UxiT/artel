@@ -225,33 +225,33 @@ public enum DocsPrompt {
     }
 
     public static func make(instruction: String, docsFolder: String, page: String?, fragment: Fragment?) -> String {
-        let folder = docsFolder.isEmpty ? "корне проекта" : "папке `\(docsFolder)/`"
-        var out = "Работаем с документацией проекта в \(folder).\n"
-        if let page { out += "Страница: `\(page)`.\n" }
+        let folder = docsFolder.isEmpty ? "the project root" : "`\(docsFolder)/`"
+        var out = "We are working on the project documentation in \(folder).\n"
+        if let page { out += "Page: `\(page)`.\n" }
         if let fragment, let page {
-            let lines = fragment.firstLine == fragment.lastLine ? "строка \(fragment.firstLine)"
-                : "строки \(fragment.firstLine)–\(fragment.lastLine)"
-            out += "\nИзмени только этот фрагмент страницы (\(lines) файла `\(page)`), остальное не трогай:\n\n"
+            let lines = fragment.firstLine == fragment.lastLine ? "line \(fragment.firstLine)"
+                : "lines \(fragment.firstLine)–\(fragment.lastLine)"
+            out += "\nChange only this fragment of the page (\(lines) of `\(page)`), leave the rest as is:\n\n"
             let fence = fragment.text.contains("```") ? "~~~~" : "```"
             out += "\(fence)markdown\n\(fragment.text.trimmingCharacters(in: .newlines))\n\(fence)\n"
         }
-        out += "\nЗадача: \(instruction.trimmingCharacters(in: .whitespacesAndNewlines))\n"
+        out += "\nTask: \(instruction.trimmingCharacters(in: .whitespacesAndNewlines))\n"
         out += """
 
-        Правила документации:
-        - Markdown, совместимый с Docusaurus. Страницы — `.md` в \(folder), разделы — вложенные папки; подпись раздела — `_category_.json` (`{"label": "…", "position": 2}`), порядок страниц — `sidebar_position` во frontmatter.
-        - Диаграммы — блоками ```mermaid; формулы — `$…$` и `$$…$$`; врезки — `:::note`, `:::tip`, `:::info`, `:::warning`, `:::danger` … `:::`.
-        - Ссылки между страницами — относительные пути к `.md`; картинки клади в `assets/` рядом со страницей.
-        - Меняй только файлы документации, если задача прямо не требует иного. Ничего не коммить.
+        Documentation rules:
+        - Docusaurus-compatible Markdown. Pages are `.md` files in \(folder), sections are subfolders; a section's label goes in `_category_.json` (`{"label": "…", "position": 2}`), page order in `sidebar_position` in the frontmatter.
+        - Diagrams as ```mermaid blocks; math as `$…$` and `$$…$$`; admonitions as `:::note`, `:::tip`, `:::info`, `:::warning`, `:::danger` … `:::`.
+        - Links between pages are relative paths to `.md` files; put images in `assets/` next to the page.
+        - Change only documentation files unless the task explicitly requires otherwise. Don't commit anything.
         """
         return out
     }
 
     /// A short session name for the workspace card.
     public static func sessionName(page: String?, fragment: Bool) -> String {
-        guard let page else { return "Документация" }
+        guard let page else { return "Docs" }
         let name = ((page as NSString).lastPathComponent as NSString).deletingPathExtension
-        return (fragment ? "Правка: " : "Документация: ") + name
+        return (fragment ? "Edit: " : "Docs: ") + name
     }
 }
 

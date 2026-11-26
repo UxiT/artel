@@ -49,8 +49,8 @@ final class ArtelResourceHandler: NSObject, WKURLSchemeHandler {
         var file: URL?
         if path.hasPrefix("app/") {
             file = DocsRendererResources.file(String(path.dropFirst(4)))
-        } else if path == "ext/excalidraw.js" {
-            file = MainActor.assumeIsolated { ExcalidrawAddon.shared.isInstalled } ? ExcalidrawAddon.file : nil
+        } else if path.hasPrefix("ext/excalidraw/") {
+            file = DocsRendererResources.contained(String(path.dropFirst("ext/excalidraw/".count)), in: ExcalidrawAddon.directory)
         } else if path.hasPrefix("root/"), let root {
             file = DocsRendererResources.contained(String(path.dropFirst(5)), in: root)
         }
@@ -60,7 +60,7 @@ final class ArtelResourceHandler: NSObject, WKURLSchemeHandler {
             task.didFinish()
             return
         }
-        let type = file.pathExtension == "js" ? "text/javascript"
+        let type = file.pathExtension == "js" ? "text/javascript" : file.pathExtension == "css" ? "text/css"
             : UTType(filenameExtension: file.pathExtension)?.preferredMIMEType
             ?? (file.pathExtension == "excalidraw" ? "application/json" : "application/octet-stream")
         let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1",
@@ -92,7 +92,7 @@ struct MarkdownRenderOptions: Equatable {
     var highlight: String?
     /// Heading id to scroll to (`page.md#anchor`).
     var anchor: String?
-    var emptyText = "Пусто"
+    var emptyText = "Empty"
     /// Folder of the document, relative to the served root: relative images and links resolve against it.
     var baseDir = ""
 }
@@ -160,7 +160,7 @@ struct MarkdownWebView: NSViewRepresentable {
                 "codeFont": fonts.code.family.map { "\"\($0)\", ui-monospace, Menlo, monospace" } ?? "ui-monospace, \"SF Mono\", Menlo, monospace",
                 "keepScroll": sameDocument && options.highlight == nil && options.anchor == nil,
                 // Excalidraw's own exporter, when downloaded (ExcalidrawAddon); else the built-in renderer.
-                "excalidrawModule": ExcalidrawAddon.shared.isInstalled ? "artel-res://local/ext/excalidraw.js" : NSNull(),
+                "excalidrawModule": ExcalidrawAddon.shared.isInstalled ? "artel-res://local/ext/excalidraw/entry.js" : NSNull(),
             ]
             pending = nil
             rendered = (options, id)
@@ -203,7 +203,7 @@ struct MarkdownWebView: NSViewRepresentable {
             // Reloading would only show the bare renderer page.
             menu.items.removeAll { $0.identifier?.rawValue == "WKMenuItemIdentifierReload" }
             guard let coordinator, coordinator.parent.askAgent != nil, coordinator.selection != nil else { return }
-            let item = NSMenuItem(title: "Попросить агента изменить фрагмент…", action: #selector(askAgent(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: "Ask Agent to Change Selection…", action: #selector(askAgent(_:)), keyEquivalent: "")
             item.target = self
             item.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
             menu.insertItem(item, at: 0)
@@ -238,7 +238,7 @@ struct MarkdownWebView: NSViewRepresentable {
         if DocsRendererResources.isAvailable {
             web.load(URLRequest(url: Self.pageURL))
         } else {
-            web.loadHTMLString("<p style='font:13px -apple-system;color:gray;padding:16px'>Просмотр недоступен: нет файлов рендерера. Запустите scripts/fetch-docs-web.sh и пересоберите приложение.</p>", baseURL: nil)
+            web.loadHTMLString("<p style='font:13px -apple-system;color:gray;padding:16px'>Preview unavailable: renderer files are missing. Run scripts/fetch-docs-web.sh and rebuild the app.</p>", baseURL: nil)
         }
         context.coordinator.render(options, id: documentID, in: web)
         return web

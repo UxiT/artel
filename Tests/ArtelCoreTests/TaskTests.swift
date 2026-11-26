@@ -64,7 +64,7 @@ private func tempDir() throws -> URL {
         ---
         id: OPS-3
         title: 'Починить деплой'
-        status: in-progress   # агент работает
+        status: in-progress   # the agent is working
         owner: me
         ---
         Тело
@@ -102,7 +102,7 @@ private func tempDir() throws -> URL {
         #expect(b.taskID == "OPS-2")  // numbering is shared across prefixes
         let loaded = TaskStore.load(project).sorted { $0.taskID < $1.taskID }
         #expect(loaded.map(\.taskID) == ["ARTEL-1", "OPS-2"])
-        #expect(loaded[0].body.contains("## Критерии приёмки"))
+        #expect(loaded[0].body.contains("## Acceptance criteria"))
         let ignore = try String(contentsOf: root.appendingPathComponent(".artel/.gitignore"), encoding: .utf8)
         #expect(ignore.contains("tasks/*/logs/"))
         #expect(TaskStore.fingerprint(project).count == 2)
@@ -207,17 +207,17 @@ private func tempDir() throws -> URL {
     @Test func promptHasTaskPathsAndBody() {
         let project = Project(name: "artel", path: "/p")
         var task = ArtelTask(projectID: project.id, directory: URL(fileURLWithPath: "/p/.artel/tasks/ARTEL-1-x"),
-                            taskID: "ARTEL-1", title: "X", body: "\n## Что сделать\nКнопку.\n")
+                            taskID: "ARTEL-1", title: "X", body: "\n## What to do\nA button.\n")
         let inProject = TaskPrompt.build(task: task, project: project, worktree: nil)
-        #expect(inProject.hasPrefix("Задача ARTEL-1 «X» проекта artel."))
+        #expect(inProject.hasPrefix("Task ARTEL-1 \"X\" of project artel."))
         #expect(inProject.contains("/p/.artel/tasks/ARTEL-1-x"))
         #expect(!inProject.contains("worktree"))
         #expect(!inProject.contains("mcp__aide"))
-        #expect(inProject.hasSuffix("## Что сделать\nКнопку."))
+        #expect(inProject.hasSuffix("## What to do\nA button."))
 
         task.branch = "artel/ARTEL-1-x"
         let inWorktree = TaskPrompt.build(task: task, project: project, worktree: "/wt/ARTEL-1")
-        #expect(inWorktree.contains("git worktree задачи (/wt/ARTEL-1, ветка artel/ARTEL-1-x)"))
+        #expect(inWorktree.contains("git worktree (/wt/ARTEL-1, branch artel/ARTEL-1-x)"))
     }
 
     @Test func obsoleteFramesAreDetected() {

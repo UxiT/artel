@@ -14,13 +14,13 @@ struct ModelField: View {
             Picker("", selection: Binding(get: { known ? model_ : customTag }, set: { v in
                 if v == customTag { if known { model_ = "" } } else { model_ = v }
             })) {
-                Text("Спросить при запуске").tag(String?.none)
+                Text("Ask at Launch").tag(String?.none)
                 ForEach(agent.models.filter { $0.id != nil }) { m in Text(m.title).tag(m.id) }
-                Text("Другая…").tag(Optional(customTag))
+                Text("Other…").tag(Optional(customTag))
             }
             .labelsHidden()
             if !known {
-                TextField("id модели", text: Binding(get: { model_ ?? "" }, set: { model_ = $0.isEmpty ? "" : $0 }))
+                TextField("Model ID", text: Binding(get: { model_ ?? "" }, set: { model_ = $0.isEmpty ? "" : $0 }))
                     .frame(minWidth: 120)
             }
         }
@@ -55,10 +55,10 @@ struct TaskSettingsFields: View {
     private var agent: any CodingAgent { CodingAgents.agent(forID: agentID) }
 
     var body: some View {
-        MetaRow("Агент") {
+        MetaRow("Agent") {
             Picker("", selection: Binding(get: { agentID }, set: { newID in
                 agentID = newID
-                // Модель другого агента может не существовать у нового — сбрасываем на выбор при запуске.
+                // The previous agent's model may not exist for the new one, so fall back to choosing at launch.
                 if let m = model_, !CodingAgents.agent(forID: newID).models.contains(where: { $0.id == m }) {
                     model_ = nil
                 }
@@ -68,6 +68,6 @@ struct TaskSettingsFields: View {
                 }
             }.labelsHidden()
         }
-        MetaRow("Модель") { ModelField(model_: $model_, agent: agent) }
+        MetaRow("Model") { ModelField(model_: $model_, agent: agent) }
     }
 }

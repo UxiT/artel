@@ -63,7 +63,9 @@ enum DebugSnapshot {
 ///   wait: seconds · section: workspace|projects|tasks [doc: path] · project: index — show its docs
 ///   edit: bool [task, text] — the open page (or task text) in / out of the editor, optionally typing text
 ///   files: bool — the project's file tree instead of its docs · docsSearch: query
-///   excalidraw: bool — download / remove Excalidraw's own exporter · webText — log what the previews rendered
+///   rightClick: [x, y] — right click at that point of the main window (from its top-left), log the menu
+///   webEval: JavaScript — run it in every visible web view, log the result
+///   excalidraw: bool — install / remove the Excalidraw download (ARTEL_EXCALIDRAW_BUNDLE = a local zip) · webText — log what the previews rendered
 ///   · select: task · launch: task [model, worktree, into (session index), clear]
 ///   resize: session index [columns, rows] — resize its card in grid cells · draggingTask: bool — show the new-session drop target
 ///   open: task · close · newTask: title — the task window with a new-task draft · createTask — create the open draft
@@ -99,6 +101,14 @@ enum DebugScript {
         } else {
             try? line.write(toFile: path, atomically: true, encoding: .utf8)
         }
+    }
+
+    @MainActor static var menuObserver: Any?
+
+    /// Virtual key codes of the keys debug scripts press (ANSI layout).
+    static func keyCode(_ key: String) -> UInt16 {
+        let codes: [String: UInt16] = ["a": 0, "s": 1, "z": 6, "x": 7, "c": 8, "v": 9, "r": 15, "e": 14, "\r": 36, "\u{1b}": 53, "\u{7f}": 51]
+        return codes[key.lowercased()] ?? 0
     }
 
     @MainActor static func task(_ model: AppModel, _ id: Any?) -> ArtelTask? {
@@ -213,13 +223,13 @@ enum DebugScript {
             for window in NSApp.windows where window.isVisible {
                 for web in DebugSnapshot.webViews(in: window.contentView?.superview ?? window.contentView ?? NSView()) {
                     let text = try? await web.evaluateJavaScript(
-                        "document.body.innerText + ' | svg=' + document.querySelectorAll('svg').length + ' katex=' + document.querySelectorAll('.katex').length + ' excalidraw-official=' + document.querySelectorAll('.excalidraw-official').length") as? String
+                        "document.body.innerText + ' | svg=' + document.querySelectorAll('svg').length + ' katex=' + document.querySelectorAll('.katex').length + ' excalidraw-official=' + document.querySelectorAll('.excalidraw-official').length + ' excalidraw-editor=' + document.querySelectorAll('.excalidraw').length") as? String
                     log("web text [\(window.title)] \(web.frame.size): \((text ?? "nil").replacingOccurrences(of: "\n", with: " ⏎ "))")
                 }
             }
         }
         if let install = step["excalidraw"] as? Bool {
-            // Download (true) or remove (false) Excalidraw's own exporter, as the settings button does.
+            // Install (true) or remove (false) the Excalidraw download, as the settings button does.
             let addon = ExcalidrawAddon.shared
             if install {
                 addon.install()
@@ -228,6 +238,57 @@ enum DebugScript {
                 addon.remove()
             }
             log("excalidraw addon: \(addon.state)")
+        }
+        if let key = step["key"] as? String, let window = NSApp.keyWindow ?? model.mainWindow {
+            // A key press through the normal event path (menus' key equivalents first), e.g. "z" + ["cmd"].
+            var flags: NSEvent.ModifierFlags = []
+            for m in step["modifiers"] as? [String] ?? [] {
+                switch m {
+                case "cmd": flags.insert(.command)
+                case "shift": flags.insert(.shift)
+                case "option": flags.insert(.option)
+                case "ctrl": flags.insert(.control)
+                default: break
+                }
+            }
+            for type in [NSEvent.EventType.keyDown, .keyUp] {
+                if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
+                                                windowNumber: window.windowNumber, context: nil, characters: key,
+                                                charactersIgnoringModifiers: key, isARepeat: false, keyCode: Self.keyCode(key)) {
+                    // Through the event queue, like a real key press (local monitors see it, then menus, then views).
+                    NSApp.postEvent(event, atStart: false)
+                }
+            }
+            log("key \(flags.contains(.command) ? "⌘" : "")\(key) → first responder \(window.firstResponder.map { String(describing: type(of: $0)) } ?? "nil")")
+        }
+        if let point = step["rightClick"] as? [Double], point.count == 2, let window = model.mainWindow {
+            // A right click at [x, y] (points from the window's top-left); the menu that opens is logged and closed.
+            if menuObserver == nil {
+                menuObserver = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { note in
+                    guard let menu = note.object as? NSMenu else { return }
+                    MainActor.assumeIsolated {
+                        log("menu: " + menu.items.map { $0.isSeparatorItem ? "—" : $0.title }.joined(separator: " | "))
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { menu.cancelTracking() }
+                    }
+                }
+            }
+            let location = NSPoint(x: point[0], y: window.frame.height - point[1])
+            for type in [NSEvent.EventType.rightMouseDown, .rightMouseUp] {
+                if let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                  windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                    NSApp.postEvent(event, atStart: false)
+                }
+            }
+            log("rightClick \(point) window \(window.frame) content \(window.contentView?.frame ?? .zero)")
+        }
+        if let script = step["webEval"] as? String {
+            // Runs JavaScript in every visible web view (preview, drawing editor) and logs the results.
+            for window in NSApp.windows where window.isVisible {
+                for web in DebugSnapshot.webViews(in: window.contentView?.superview ?? window.contentView ?? NSView()) {
+                    let result = try? await web.evaluateJavaScript(script)
+                    log("webEval [\(window.title)]: \(result.map { "\($0)" } ?? "nil")")
+                }
+            }
         }
         if let files = step["files"] as? Bool { model.showsProjectFiles = files }
         if let query = step["docsSearch"] as? String { model.docsSearch = query }

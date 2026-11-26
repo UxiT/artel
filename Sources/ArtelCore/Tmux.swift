@@ -130,7 +130,7 @@ public enum ArtelError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .tmux(let msg): "tmux: \(msg)"
-        case .toolMissing(let tool): "Не найден \(tool)"
+        case .toolMissing(let tool): "\(tool) not found"
         case .invalidProject(let msg): msg
         case .git(let msg): "git: \(msg)"
         }

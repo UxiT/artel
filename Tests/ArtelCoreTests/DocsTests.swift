@@ -158,12 +158,12 @@ private func read(_ root: URL, _ path: String) -> String {
 
 @Suite struct DocsPromptTests {
     @Test func fragmentPromptNamesLines() {
-        let p = DocsPrompt.make(instruction: "Сделай короче", docsFolder: "docs", page: "docs/a.md",
+        let p = DocsPrompt.make(instruction: "Make it shorter", docsFolder: "docs", page: "docs/a.md",
                                 fragment: .init(firstLine: 3, lastLine: 5, text: "abc\n"))
-        #expect(p.contains("строки 3–5 файла `docs/a.md`"))
+        #expect(p.contains("lines 3–5 of `docs/a.md`"))
         #expect(p.contains("```markdown\nabc\n```"))
-        #expect(p.contains("Задача: Сделай короче"))
-        #expect(DocsPrompt.sessionName(page: "docs/guide/setup.md", fragment: true) == "Правка: setup")
+        #expect(p.contains("Task: Make it shorter"))
+        #expect(DocsPrompt.sessionName(page: "docs/guide/setup.md", fragment: true) == "Edit: setup")
     }
 }
 
@@ -207,5 +207,22 @@ private func read(_ root: URL, _ path: String) -> String {
         let f = DocsPrompt.fragment(source: src, range: NSRange(location: 3, length: 4))
         #expect(f == .init(firstLine: 2, lastLine: 3, text: "bcd\nef"))
         #expect(DocsPrompt.fragment(source: src, range: NSRange(location: 1, length: 0)) == nil)
+    }
+}
+
+@Suite struct DocsDrawingTests {
+    @Test func assetsFoldersAreNotSectionsAndDrawingsGetFreePaths() throws {
+        let root = try makeSite([
+            "docs/index.md": "# Home\n",
+            "docs/assets/home-drawing.excalidraw": DocsSite.emptyDrawing,
+            "docs/flow.excalidraw": DocsSite.emptyDrawing,
+        ])
+        let tree = DocsSite.tree(root: root, folder: "docs")
+        #expect(tree.map(\.path) == ["docs/flow.excalidraw", "docs/index.md"])
+        #expect(DocsSite.newDrawingPath(title: "home-drawing", folder: "docs/assets", root: root) == "docs/assets/home-drawing-2.excalidraw")
+        #expect(DocsSite.newDrawingPath(title: "Request flow", folder: "docs", root: root) == "docs/request-flow.excalidraw")
+        let scene = try JSONSerialization.jsonObject(with: Data(DocsSite.emptyDrawing.utf8)) as? [String: Any]
+        #expect(scene?["type"] as? String == "excalidraw")
+        #expect((scene?["elements"] as? [Any])?.isEmpty == true)
     }
 }

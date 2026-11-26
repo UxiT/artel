@@ -140,8 +140,8 @@
 
   // Docusaurus admonitions: ":::note Title" / ":::tip[Title]" … ":::".
   const admonitions = {
-    note: 'Заметка', tip: 'Совет', info: 'Информация', warning: 'Внимание', caution: 'Осторожно',
-    danger: 'Опасно', important: 'Важно', success: 'Готово',
+    note: 'Note', tip: 'Tip', info: 'Info', warning: 'Warning', caution: 'Caution',
+    danger: 'Danger', important: 'Important', success: 'Success',
   };
   for (const [name, defaultTitle] of Object.entries(admonitions)) {
     md.use(window.markdownitContainer, name, {
@@ -165,10 +165,10 @@
     const lang = (t.info || '').trim().split(/\s+/)[0].toLowerCase();
     const attrs = self.renderAttrs(t);
     if (lang === 'mermaid') {
-      return `<div class="diagram mermaid-block"${attrs} data-source="${escapeHTML(t.content)}"><span class="pending">Диаграмма…</span></div>\n`;
+      return `<div class="diagram mermaid-block"${attrs} data-source="${escapeHTML(t.content)}"><span class="pending">Diagram…</span></div>\n`;
     }
     if (lang === 'excalidraw') {
-      return `<div class="diagram excalidraw-block"${attrs} data-source="${escapeHTML(t.content)}"><span class="pending">Диаграмма…</span></div>\n`;
+      return `<div class="diagram excalidraw-block"${attrs} data-source="${escapeHTML(t.content)}"><span class="pending">Diagram…</span></div>\n`;
     }
     if (lang === 'math' || lang === 'latex' || lang === 'katex' || lang === 'tex') {
       return `<div class="math"${attrs}>${katexHTML(t.content, true)}</div>\n`;
@@ -181,7 +181,7 @@
   md.renderer.rules.image = (tokens, idx, opts, env, self) => {
     const src = tokens[idx].attrGet('src') || '';
     if (/\.excalidraw(\.json)?$/i.test(src.split(/[?#]/)[0])) {
-      return `<span class="diagram excalidraw-block" style="display:block" data-url="${escapeHTML(src)}"><span class="pending">Диаграмма…</span></span>`;
+      return `<span class="diagram excalidraw-block" style="display:block" data-url="${escapeHTML(src)}"><span class="pending">Diagram…</span></span>`;
     }
     return defaultImage(tokens, idx, opts, env, self);
   };
@@ -206,7 +206,7 @@
         const s = document.createElement('script');
         s.src = 'artel-res://local/app/vendor/mermaid.min.js';
         s.onload = () => resolve(window.mermaid);
-        s.onerror = () => reject(new Error('mermaid не загрузился'));
+        s.onerror = () => reject(new Error('mermaid failed to load'));
         document.head.appendChild(s);
       });
     }
@@ -223,7 +223,7 @@
     if (!blocks.length) return;
     let mermaid;
     try { mermaid = await loadMermaid(); } catch (e) {
-      blocks.forEach((b) => { b.innerHTML = errorBox('Mermaid недоступен', e.message); });
+      blocks.forEach((b) => { b.innerHTML = errorBox('Mermaid is unavailable', e.message); });
       return;
     }
     mermaid.initialize({
@@ -240,38 +240,30 @@
         if (generation !== renderGeneration) return;
         block.innerHTML = svg;
       } catch (e) {
-        block.innerHTML = errorBox('Ошибка в диаграмме Mermaid', (e && e.message || String(e)).split('\n')[0], source);
+        block.innerHTML = errorBox('Mermaid diagram error', (e && e.message || String(e)).split('\n')[0], source);
         document.querySelectorAll(`#dmermaid-${mermaidCounter}, #mermaid-${mermaidCounter}`).forEach((n) => n.remove());
       }
     }
   }
 
-  // Excalidraw's own exporter (an optional download, see ExcalidrawAddon.swift). null = not available.
+  // Excalidraw's own export (the optional Excalidraw download, see ExcalidrawAddon.swift). null = not available.
   let excalidrawModule = null;
   let excalidrawModuleURL = null;
   function loadExcalidrawModule(url) {
     if (!url) return Promise.resolve(null);
     if (url !== excalidrawModuleURL) {
       excalidrawModuleURL = url;
+      // Its fonts are served from the same folder.
+      window.EXCALIDRAW_ASSET_PATH = url.replace(/[^/]*$/, '');
       excalidrawModule = import(url).catch((e) => { console.error('excalidraw module', e); return null; });
     }
     return excalidrawModule;
   }
 
-  async function officialExcalidraw(scene, url) {
+  async function officialExcalidraw(json, url) {
     const mod = await loadExcalidrawModule(url);
-    if (!mod || !mod.exportScene) return null;
-    const svg = await mod.exportScene({
-      type: 'svg',
-      data: {
-        elements: (scene.elements || []).filter((e) => !e.isDeleted),
-        appState: { viewBackgroundColor: (scene.appState && scene.appState.viewBackgroundColor) || '#ffffff' },
-        files: scene.files || null,
-      },
-      // The SVG lives in this page: fonts are registered in the document (FontFace) instead of being
-      // subset and embedded into every drawing.
-      config: { theme: dark() ? 'dark' : 'light', padding: 16, skipInliningFonts: true },
-    });
+    if (!mod || !mod.sceneToSvg) return null;
+    const svg = await mod.sceneToSvg(json, dark() ? 'dark' : 'light');
     svg.classList.add('excalidraw-official');
     return svg;
   }
@@ -283,19 +275,24 @@
         let json = block.dataset.source;
         if (!json && block.dataset.url) {
           const res = await fetch(new URL(block.dataset.url, document.baseURI));
-          if (!res.ok) throw new Error(`файл не найден: ${block.dataset.url}`);
+          if (!res.ok) throw new Error(`file not found: ${block.dataset.url}`);
           json = await res.text();
         }
         if (generation !== renderGeneration) return;
-        const scene = JSON.parse(json);
         let svg = null;
-        try { svg = await officialExcalidraw(scene, url); } catch (e) { console.error('excalidraw export', e); }
+        try { svg = await officialExcalidraw(json, url); } catch (e) { console.error('excalidraw export', e); }
         if (generation !== renderGeneration) return;
-        if (!svg) svg = window.ArtelExcalidraw.render(scene);
+        if (!svg) svg = window.ArtelExcalidraw.render(JSON.parse(json));
         block.innerHTML = '';
         block.appendChild(svg);
+        if (block.dataset.url) {
+          // Like Obsidian: a click opens the drawing (to edit it).
+          block.classList.add('linked');
+          block.title = 'Open the drawing';
+          block.addEventListener('click', () => post({ type: 'link', href: block.dataset.url }));
+        }
       } catch (e) {
-        block.innerHTML = errorBox('Не удалось показать Excalidraw', e.message);
+        block.innerHTML = errorBox("Couldn't render the Excalidraw drawing", e.message);
       }
     }
   }
@@ -350,7 +347,7 @@
     if (options.mdx) text = stripMDX(text);
     let html = md.render(text);
     if (options.title && !/^\s*#\s/m.test(text)) html = `<h1>${escapeHTML(options.title)}</h1>\n${html}`;
-    if (!text.trim() && !options.title) html = `<p class="empty">${escapeHTML(options.emptyText || 'Пусто')}</p>`;
+    if (!text.trim() && !options.title) html = `<p class="empty">${escapeHTML(options.emptyText || 'Empty')}</p>`;
     const scroll = window.scrollY;
     root.innerHTML = html;
     if (options.keepScroll) window.scrollTo(0, scroll);

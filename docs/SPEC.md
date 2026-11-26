@@ -1,346 +1,351 @@
-# Artel — ТЗ v0.1
+# Artel — Specification v0.1
 
-Нативное приложение для macOS (Apple Silicon, macOS 26+): единая среда для работы с кодовыми агентами над несколькими проектами параллельно, с лёгкой доской задач.
+A native macOS app (Apple Silicon, macOS 26+): a single environment for working with coding agents on several projects in parallel, with a lightweight task board.
 
-Главная цель — в одном окне видеть все запущенные сессии агентов, какие из них ждут ответа оператора и какие вопросы агент задал.
+The main goal is to see, in one window, all running agent sessions, which of them are waiting for the operator's reply, and what questions the agent has asked.
 
 ---
 
-## 1. Термины
+## 1. Terms
 
-| Термин | Значение |
+| Term | Meaning |
 |---|---|
-| Оператор | Пользователь приложения (разработчик) |
-| Проект | Папка на диске; обычно git-репозиторий с `CLAUDE.md`, но ни то ни другое не обязательно |
-| Задача | Промпт с вложениями: `.md`-файл + папка задачи |
-| Сессия | Слот в рабочей области: терминал с запущенным агентом (`claude`) внутри tmux |
-| Агент | Кодовый CLI-агент: Claude Code и Kimi Code; архитектура допускает другие |
+| Operator | The user of the app (a developer) |
+| Project | A folder on disk; usually a git repository with `CLAUDE.md`, but neither is required |
+| Task | A prompt with attachments: an `.md` file plus a task folder |
+| Session | A slot in the workspace: a terminal running an agent (`claude`) inside tmux |
+| Agent | A coding CLI agent: Claude Code and Kimi Code; the architecture allows others |
 
 ---
 
-## 2. Проект
+## 2. Project
 
-### 2.1. Состав
-- **Путь к директории** (обязательно). Git-репозиторий не обязателен, но без него недоступны worktree задач, diff, базовая ветка и коммит `.artel/` — задачи работают прямо в папке проекта.
-- **Описание и спеки** — в `CLAUDE.md` в корне проекта (рекомендуется, не обязательно). Спеки по стеку/архитектуре — в отдельных файлах (`docs/stack.md`, `docs/arch.md` …), на которые ссылается `CLAUDE.md`. Приложение не дублирует эти данные, а читает/редактирует файлы.
-- **Задачи** — см. раздел 3.
-- **Настройки проекта** (хранятся в приложении):
-  - имя, цвет/иконка;
-  - **префикс ID задач** — по умолчанию `ARTEL`, меняется в настройках проекта (нумерация сквозная внутри проекта; смена префикса не переименовывает существующие задачи);
-  - базовая ветка для worktree задач и diff (по умолчанию — текущая ветка репозитория);
-  - режим разрешений агента (по умолчанию `auto`);
-  - модель по умолчанию (опционально);
-  - **хранить `.artel/` в git** — по умолчанию да (коммитится); опция «добавить `.artel/` в `.gitignore`».
+### 2.1. Contents
+- **Directory path** (required). A git repository is not required, but without one task worktrees, diff, the base branch and committing `.artel/` are unavailable; tasks run directly in the project folder.
+- **Description and specs** live in `CLAUDE.md` at the project root (recommended, not required). Stack/architecture specs go into separate files (`docs/stack.md`, `docs/arch.md` …) referenced from `CLAUDE.md`. The app does not duplicate this data; it reads and edits the files.
+- **Tasks**: see section 3.
+- **Project settings** (stored in the app):
+  - name, color/icon;
+  - **task ID prefix**: `ARTEL` by default, changed in Project Settings (numbering is continuous within a project; changing the prefix does not rename existing tasks);
+  - base branch for task worktrees and diff (defaults to the repository's current branch);
+  - agent permission mode (`auto` by default);
+  - default model (optional);
+  - **keep `.artel/` in git**: yes by default (committed); option "add `.artel/` to `.gitignore`".
 
-### 2.2. Добавление проекта
-1. Оператор выбирает папку (или drag-and-drop папки в окно).
-2. Проверка: это git-репозиторий; есть `CLAUDE.md` с заполненным описанием. Обе проверки — рекомендации: проект можно добавить и без них.
-3. Если папка не git-репозиторий — диалог предлагает выполнить `git init` (по умолчанию выключено) и объясняет, что без git недоступно.
-4. Если `CLAUDE.md` нет или он пустой — диалог предлагает заполнить его из шаблона (описание, стек, архитектура, ссылки на spec-файлы). Сохранить файл можно только с заполненным описанием; кнопка «Добавить без CLAUDE.md» добавляет проект, не создавая файл (его можно создать позже в разделе «Проекты»).
+### 2.2. Adding a project
+1. The operator picks a folder (or drags a folder into the window).
+2. Checks: it is a git repository; it has a `CLAUDE.md` with a filled-in description. Both checks are recommendations: the project can be added without them.
+3. If the folder is not a git repository, the dialog offers to run `git init` (off by default) and explains what is unavailable without git.
+4. If `CLAUDE.md` is missing or empty, the dialog offers to fill it in from a template (description, stack, architecture, links to spec files). The file can be saved only with a filled-in description; the "Add Without CLAUDE.md" button adds the project without creating the file (it can be created later in the Projects section).
 
-### 2.3. Редактор кода
-Код (проект, worktree задачи, файл из diff) открывается в редакторе, выбранном для проекта:
-- если выбора ещё нет — автоматически подбирается установленная JetBrains IDE по стеку проекта (`go.mod` → GoLand, `Cargo.toml` → RustRover, `composer.json` → PhpStorm, `package.json` → WebStorm, Python → PyCharm, `Gemfile` → RubyMine, Java/Kotlin → IntelliJ IDEA; IntelliJ IDEA Ultimate — универсальный запасной вариант);
-- если подходящей JetBrains IDE нет — приложение спрашивает, в чём открыть (список установленных редакторов или любое приложение);
-- выбор запоминается в проекте и меняется в настройках проекта.
+### 2.3. Code editor
+Code (the project, a task worktree, a file from the diff) opens in the editor chosen for the project:
+- if nothing has been chosen yet, an installed JetBrains IDE is picked automatically from the project stack (`go.mod` → GoLand, `Cargo.toml` → RustRover, `composer.json` → PhpStorm, `package.json` → WebStorm, Python → PyCharm, `Gemfile` → RubyMine, Java/Kotlin → IntelliJ IDEA; IntelliJ IDEA Ultimate is the universal fallback);
+- if no suitable JetBrains IDE is installed, the app asks what to open it in (a list of installed editors or any application);
+- the choice is remembered per project and changed in Project Settings.
 
-### 2.4. Редактирование
-Markdown (текст задачи, страницы документации, `CLAUDE.md`, правила контекста) всегда показывается в просмотре. «Редактировать» (`⌘E`) открывает исходный текст; `⌘S` сохраняет, «Готово», `Esc` и `⌘↩` сохраняют и возвращают к просмотру, «Отменить изменения» возвращает текст с диска. Сохранение только явное: у документа с несохранёнными правками — точка (в заголовке и в дереве), при выходе из приложения — вопрос «Сохранить?». Пока правок нет, изменения файла на диске (агент, другой редактор) подхватываются сами. Перед запуском задачи несохранённый текст задачи сохраняется. Ссылки вида `@docs/arch.md` / `[..](docs/arch.md)` кликабельны. Документация проекта — §4.9.
+### 2.4. Editing
+Markdown (task text, documentation pages, `CLAUDE.md`, context rules) is always shown rendered. "Edit" (`⌘E`) opens the source text; `⌘S` saves, "Done", `Esc` and `⌘↩` save and return to the rendered view, "Discard Changes" reloads the text from disk. Saving is explicit only: a document with unsaved edits shows a dot (in the title and in the tree), and quitting the app asks "Save?". While there are no edits, changes to the file on disk (by an agent or another editor) are picked up automatically. Unsaved task text is saved before the task is launched. Links like `@docs/arch.md` / `[..](docs/arch.md)` are clickable. Project documentation: §4.9.
 
 ---
 
-## 3. Задача
+## 3. Task
 
-Задача — это промпт с вложениями, который оператор отдаёт агенту в сессию. Artel не ведёт агента по этапам: после первого сообщения работа идёт в терминале, как в обычной сессии. (Цикл план → ревью → тестирование → приёмка с MCP-сервером, замечаниями и автоматическим merge был в версии v0.1 и убран — он добавлял больше проблем, чем помогал.)
+A task is a prompt with attachments that the operator hands to an agent in a session. Artel does not lead the agent through stages: after the first message, work continues in the terminal like in a regular session. (The plan → review → testing → acceptance cycle with an MCP server, review comments and automatic merge existed in v0.1 and was removed: it caused more problems than it solved.)
 
-### 3.1. Хранение
-Каждая задача — папка в `<project>/.artel/tasks/<ID>-<slug>/`:
+### 3.1. Storage
+Each task is a folder `<project>/.artel/tasks/<ID>-<slug>/`:
 
 ```
 .artel/tasks/ARTEL-12-login-form/
-├── task.md          # frontmatter + текст задачи (= промпт)
-├── history.jsonl    # история: создание, статусы, запуски
-├── attachments/     # скриншоты и файлы, перетащенные в задачу
-└── logs/            # события и транскрипты сессий задачи
+├── task.md          # frontmatter + task text (= prompt)
+├── history.jsonl    # history: creation, statuses, launches
+├── attachments/     # screenshots and files dropped into the task
+└── logs/            # events and transcripts of the task's sessions
 ```
 
-`.artel/` хранится в **основной рабочей копии** проекта (не в worktree), агент получает абсолютный путь к папке задачи (`--add-dir`). Так данные задачи видны приложению и другим сессиям сразу.
+`.artel/` is stored in the project's **main working copy** (not in a worktree); the agent gets the absolute path to the task folder (`--add-dir`). This way task data is immediately visible to the app and to other sessions.
 
-Файлы старых задач (`plan.md`, `progress.md`, `comments.md`, `review.md`, `testing.md`, `summary.md`) остаются в папке, но приложение их больше не показывает; их можно открыть кнопкой «Папка».
+Files of old tasks (`plan.md`, `progress.md`, `comments.md`, `review.md`, `testing.md`, `summary.md`) stay in the folder, but the app no longer shows them; they can be opened with the "Folder" button.
 
-**Сессии без задачи:** при запуске создаётся архив `.artel/no-task/<session-id>/` с теми же `task.md`, `history.jsonl` и `logs/`. Первая непустая строка первого промпта (до 80 символов) становится заголовком сессии и архива; последующие промпты его не меняют. JSONL событий копируется при каждом хуке, нативный транскрипт агента — на границах хода и при закрытии. Архивы живут 7 дней после последнего обновления; очистка выполняется при каждом чтении и записи `no-task/`, активные сессии не удаляются. Оператор может добавить архив на доску: папка переносится в `.artel/tasks/<ID>-<slug>/`, получает следующий номер проекта и статус `done`, первый промпт остаётся телом `task.md`, история и логи сохраняются. Если сессия ещё работает, последующие логи пишутся уже в папку новой задачи. Архив можно выключить: галочка «Сохранять в архив сессий без задачи» в окне новой сессии (по умолчанию — из настроек, раздел «Сессии без задачи»; ⌘T берёт значение из настроек) и пункт «Сохранять в архив» в меню карточки. Без архива ничего не пишется в `no-task/`, заголовок по первому промпту сохраняется, а уже записанный архив доживает свои 7 дней. На токены агента архив не влияет: копирование делает приложение, агенту папка не передаётся.
+**Sessions without a task:** on launch, an archive `.artel/no-task/<session-id>/` is created with the same `task.md`, `history.jsonl` and `logs/`. The first non-empty line of the first prompt (up to 80 characters) becomes the title of the session and the archive; later prompts don't change it. The events JSONL is copied on every hook, the agent's native transcript at turn boundaries and on close. Archives live for 7 days after their last update; cleanup runs on every read and write of `no-task/`, and active sessions are never removed. The operator can add an archive to the board: the folder moves to `.artel/tasks/<ID>-<slug>/`, gets the project's next number and status `done`, the first prompt stays as the `task.md` body, and history and logs are kept. If the session is still running, further logs go to the new task's folder. The archive can be turned off: the "Save to the no-task archive" checkbox in the New Session window (its default comes from the "Sessions Without a Task" section of Settings; ⌘T takes the value from Settings) and the "Save to Archive" item in the card menu. Without the archive nothing is written to `no-task/`, the title from the first prompt is still set, and an archive already written lives out its 7 days. The archive costs no agent tokens: the app does the copying, and the folder is not passed to the agent.
 
-**`.artel/` и git:**
-- По умолчанию `.artel/` коммитится в репозиторий. В настройках проекта — опция «добавить `.artel/` в `.gitignore`».
-- `logs/` и временный `no-task/` не коммитятся никогда: приложение создаёт `.artel/.gitignore` с `tasks/*/logs/` и `no-task/`.
-- **Когда коммитить `.artel/` — решает оператор.** Автокоммитов нет. В приложении есть действие «Закоммитить задачи» (в списке задач и на уровне проекта, горячая клавиша `⌥⌘S`) с индикатором «есть незакоммиченные изменения в `.artel/`». Коммит идёт в основной копии и только по путям `.artel/` (`git commit --only -- .artel/`), не задевая другие изменения оператора; сообщение предзаполняется списком изменений (`artel: ARTEL-12 → in-progress, ARTEL-14 created`) и редактируется перед коммитом.
-- В worktree задач `.artel/` исключается через `git sparse-checkout`, чтобы агент не правил устаревшую копию файлов задачи.
+**`.artel/` and git:**
+- By default `.artel/` is committed to the repository. Project Settings has the option "add `.artel/` to `.gitignore`".
+- `logs/` and the temporary `no-task/` are never committed: the app creates `.artel/.gitignore` with `tasks/*/logs/` and `no-task/`.
+- **The operator decides when to commit `.artel/`.** There are no automatic commits. The app has a "Commit Tasks" action (in the task list and at the project level, shortcut `⌥⌘S`) with an indicator "uncommitted changes in `.artel/`". The commit is made in the main working copy and only for `.artel/` paths (`git commit --only -- .artel/`), leaving the operator's other changes untouched; the message is prefilled with a list of changes (`artel: ARTEL-12 → in-progress, ARTEL-14 created`) and can be edited before committing.
+- In task worktrees `.artel/` is excluded via `git sparse-checkout`, so the agent doesn't edit a stale copy of the task files.
 
-### 3.2. Формат `task.md`
+### 3.2. `task.md` format
 
 ```markdown
 ---
 id: ARTEL-12
-title: Форма логина
+title: Login form
 project: artel
 status: in-progress       # new | in-progress | done
 agent: claude
-model: opus               # пусто → спросить при запуске
-branch: artel/ARTEL-12-login-form            # только если у задачи есть worktree
+model: opus               # empty → ask on launch
+branch: artel/ARTEL-12-login-form            # only if the task has a worktree
 worktree: ~/.artel/worktrees/artel/ARTEL-12
 sessions: [s-3f2a]
 created: 2026-11-05T10:12:00Z
 updated: 2026-11-05T14:40:00Z
 ---
 
-## Что сделать
+## What to do
 ...
 
-## Контекст
+## Context
 ...
 
-## Референсы
+## References
 - @src/auth/session.ts
 - https://example.com/design
-- ![макет](attachments/login.png)
+- ![mockup](attachments/login.png)
 
-## Критерии приёмки
+## Acceptance criteria
 - [ ] ...
 
-## Ограничения
+## Constraints
 - ...
 ```
 
-**Текст задачи и есть промпт.** Разбивка на секции — шаблон редактора, а не отдельные поля. Все ссылки и референсы вставляются прямо в текст:
-- файлы проекта — `@path` (автодополнение по файлам проекта);
-- URL — как есть;
-- изображения/файлы — drag-and-drop в редактор → копируются в `attachments/` → вставляется ссылка.
+**The task text is the prompt.** The sections are an editor template, not separate fields. All links and references go directly into the text:
+- project files: `@path` (autocompletion over project files);
+- URLs: as is;
+- images/files: drag-and-drop into the editor → copied into `attachments/` → a link is inserted.
 
-Незнакомые ключи frontmatter сохраняются как есть. Ключи прежнего цикла (`priority`, `depends_on`, `review`, `testing`, `iteration`, `awaiting_agent`, `merge_conflict`) читаются без ошибок и убираются при следующей записи.
+Unknown frontmatter keys are kept as is. Keys of the former cycle (`priority`, `depends_on`, `review`, `testing`, `iteration`, `awaiting_agent`, `merge_conflict`) are read without errors and dropped on the next write.
 
-### 3.3. Статусы
+### 3.3. Statuses
 
 `new` → `in-progress` → `done`.
 
-| Переход | Кто | Когда |
+| Transition | Who | When |
 |---|---|---|
-| `new → in-progress` | приложение | задача впервые запущена в сессии |
-| любой → любой | оператор | меню статуса, перетаскивание карточки на доске |
-| `* → done` у задачи с worktree | оператор | диалог: остановить сессии, удалить worktree, удалить ветку (только уже слитую — `git branch -d`) |
+| `new → in-progress` | the app | the task is launched in a session for the first time |
+| any → any | the operator | status menu, dragging the card on the board |
+| `* → done` for a task with a worktree | the operator | dialog: stop sessions, remove the worktree, delete the branch (only if already merged: `git branch -d`) |
 
-Статусы прежнего цикла читаются так: `plan`, `plan-review`, `review`, `testing` → `in-progress`; `cancelled` → `done`.
+Statuses of the former cycle are read as follows: `plan`, `plan-review`, `review`, `testing` → `in-progress`; `cancelled` → `done`.
 
-### 3.4. Запуск
-Задачу можно перетащить в рабочую область (или `⌘R`), если она не закрыта и не выполняется сейчас в другой сессии. Диалог запуска:
-- модель — если в задаче не указана (с возможностью сохранить в задачу);
-- **«Отдельный git worktree»** — галочка, последний выбор запоминается; у задачи, которая уже получила worktree, он используется всегда. В проекте без git галочки нет — задача работает в папке проекта;
-- для существующей сессии — очистка контекста (см. 4.4).
+### 3.4. Launch
+A task can be dragged into the workspace (or `⌘R`) if it is not closed and is not currently running in another session. The launch dialog:
+- model, if the task doesn't specify one (with an option to save it to the task);
+- **"Separate git worktree"**: a checkbox, the last choice is remembered; a task that already has a worktree always uses it. In a project without git there is no checkbox: the task runs in the project folder;
+- for an existing session: clearing the context (see 4.4).
 
-Первое сообщение агенту — обвязка промпта из настроек (§6) + текст `task.md`. Перезапуск задачи (в той же или новой сессии) отправляет его заново.
+The first message to the agent is the prompt wrapper from Settings (§6) plus the text of `task.md`. Relaunching a task (in the same or a new session) sends it again.
 
 ### 3.5. Git worktree
-- Если при запуске выбран worktree, создаётся ветка `artel/<ID>-<slug>` от базовой ветки и worktree в `~/.artel/worktrees/<project>/<ID>/`; агент работает в нём, параллельные задачи одного проекта не мешают друг другу. Без worktree агент работает прямо в рабочей копии проекта.
-- Вкладка «Изменения» в окне задачи показывает diff ветки относительно базовой: коммиты, незакоммиченные правки, новые файлы.
-- **Artel ветку не сливает.** Оператор мержит её сам (или просит агента); при закрытии задачи можно удалить worktree и уже слитую ветку.
+- If a worktree is chosen at launch, a branch `artel/<ID>-<slug>` is created from the base branch along with a worktree in `~/.artel/worktrees/<project>/<ID>/`; the agent works in it, and parallel tasks of the same project don't interfere with each other. Without a worktree the agent works directly in the project's working copy.
+- The "Changes" tab in the task window shows the branch diff against the base: commits, uncommitted edits, new files.
+- **Artel does not merge the branch.** The operator merges it (or asks the agent to); when closing a task, the worktree and an already merged branch can be removed.
 
 ---
 
-## 4. Интерфейс
+## 4. Interface
 
-Разделы окна (сегменты в тулбаре, `⌥⌘1…3`): **Workspace** (сетка сессий), **Проекты** (документация), **Задачи** (доска). В Workspace нет поиска и фильтров: сайдбар показывает все задачи; поиск (`⌘F`) и фильтры — на доске задач.
+Window sections (toolbar segments, `⌥⌘1…3`): **Workspace** (session grid), **Projects** (documentation), **Tasks** (board). Workspace has no search or filters: the sidebar shows all tasks; search (`⌘F`) and filters are on the task board.
 
-### 4.1. Общая раскладка
+### 4.1. Overall layout
 ```
 ┌──────────────┬─────────────────────────────────────────────┬────────────┐
-│ Задачи       │ Рабочая область  [Вкладка 1] [Вкладка 2] [+] │ Инспектор  │
-│ [фильтры]    │ ┌─────────┐ ┌─────────┐ ┌─────────┐         │ (задача /  │
-│ ▾ Проект A   │ │ сессия  │ │ сессия  │ │   +     │  →→ скролл│  сессия,   │
-│   ● задача   │ │ ⏳ ждёт  │ │ ▶ работа│ │ новая   │         │  скрываем) │
-│   ● задача   │ └─────────┘ └─────────┘ └─────────┘         │            │
-│ ▾ Проект B   │                                             │            │
-│   ● задача   │                                             │            │
+│ Tasks        │ Workspace          [Tab 1] [Tab 2] [+]      │ Inspector  │
+│ [filters]    │ ┌─────────┐ ┌─────────┐ ┌─────────┐         │ (task /    │
+│ ▾ Project A  │ │ session │ │ session │ │   +     │→→ scroll│  session,  │
+│   ● task     │ │ ⏳ waits │ │ ▶ works │ │  new    │         │  hideable) │
+│   ● task     │ └─────────┘ └─────────┘ └─────────┘         │            │
+│ ▾ Project B  │                                             │            │
+│   ● task     │                                             │            │
 ├──────────────┴─────────────────────────────────────────────┴────────────┤
-│ Лимиты подписки: 5ч ▓▓▓▓░░ 62% · неделя ▓▓░░░░ 31% │ ждут ответа: 2    │
-└──────────────────────────────────────────────────────────────────────────┘
+│ Subscription limits: 5h ▓▓▓▓░░ 62% · week ▓▓░░░░ 31% │ waiting: 2       │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2. Список задач (слева)
-- Общий список по всем проектам, **сгруппирован по проекту**, внутри — сортировка по статусу (в порядке воронки, активные выше), затем по времени изменения (новые выше).
-- Фильтры: проект (мульти-выбор), статус (мульти-выбор); поиск по названию и тексту.
-- Строка задачи: ID, заголовок, статус (цветной бейдж), индикатор «в сессии» / «ждёт ответа», значок ветки, если у задачи есть worktree.
-- Новая задача: кнопка «Новая задача» в тулбаре (и `⌘N`) открывает компактный лист с черновиком: заголовок, проект (по умолчанию — выбранной задачи/сессии), агент, модель, текст. «Создать» (`⌘⏎` или ⏎ в заголовке) создаёт задачу в `new` и открывает её окно; «Отмена» (`Esc`) закрывает без создания.
-- Одиночный клик выделяет задачу, двойной клик или ⏎ — открывает её в отдельном (немодальном) окне задачи.
+### 4.2. Task list (left)
+- One list across all projects, **grouped by project**; within a group, sorted by status (in funnel order, active first), then by modification time (newest first).
+- Filters: project (multi-select), status (multi-select); search by title and text.
+- Task row: ID, title, status (colored badge), "in session" / "waiting for reply" indicator, a branch icon if the task has a worktree.
+- New task: the "New Task" toolbar button (and `⌘N`) opens a compact sheet with a draft: title, project (defaults to that of the selected task/session), agent, model, text. "Create" (`⌘⏎` or ⏎ in the title) creates the task in `new` and opens its window; "Cancel" (`Esc`) closes without creating.
+- A single click selects a task; a double-click or ⏎ opens it in a separate (non-modal) task window.
 
-### 4.3. Рабочая область (центр)
-- По умолчанию — **сетка** сессий; при нехватке места — горизонтальный скролл.
-- **Вкладки**: оператор создаёт вкладки, переносит сессии между ними перетаскиванием (на заголовок вкладки). Закрытие вкладки принудительно завершает все её сессии; если среди них есть активные, приложение сначала запрашивает подтверждение.
-- **Развернуть сессию** на всю рабочую область и свернуть обратно.
-- **Изменить размер сессии** перетаскиванием правого или нижнего края карточки (угол меняет оба измерения). Размер меняется по ячейкам сетки: карточка занимает целое число строк и колонок, остальные сессии перестраиваются в прежнем порядке. Размер сохраняется в состоянии рабочей области; контекстное меню позволяет сбросить его до одной ячейки.
-- Во время перетаскивания задачи справа появляется область **«+»**: перетащить задачу туда → новая сессия. В обычном режиме она скрыта, а новая сессия создаётся компактной кнопкой в тулбаре; её подсказка использует то же определение горячей клавиши, что и команда меню.
+### 4.3. Workspace (center)
+- By default, a **grid** of sessions; when space runs out, horizontal scrolling.
+- **Tabs**: the operator creates tabs and moves sessions between them by dragging (onto the tab title). Closing a tab force-terminates all its sessions; if any of them are active, the app asks for confirmation first.
+- **Expand a session** to fill the whole workspace and collapse it back.
+- **Resize a session** by dragging the right or bottom edge of the card (the corner changes both dimensions). Size changes in grid cells: the card occupies a whole number of rows and columns, and the other sessions reflow in their previous order. The size is saved in the workspace state; the context menu can reset it to one cell.
+- While a task is being dragged, a **"+"** area appears on the right: dropping the task there → a new session. Normally it is hidden, and a new session is created with a compact toolbar button; its tooltip uses the same shortcut definition as the menu command.
 
-**Карточка сессии в свёрнутом виде:**
-- задача (ID + заголовок), проект (цвет), модель;
-- состояние: `работает` / `ждёт ответа` / `ждёт разрешения` / `завершена (idle)` / `ошибка` / `остановлена`;
-- последний вопрос агента или последнее сообщение (1–2 строки);
-- время в текущем состоянии.
+**Collapsed session card:**
+- task (ID + title), project (color), model;
+- state: `working` / `waiting for reply` / `waiting for permission` / `finished (idle)` / `error` / `stopped`;
+- the agent's last question or last message (1–2 lines);
+- time in the current state.
 
-Сессии, ждущие ответа, визуально выделены (подсветка рамки, сортировка вперёд — настраивается).
+Sessions waiting for a reply are highlighted (border highlight, sorted first; configurable).
 
-### 4.4. Сценарии drag-and-drop
-**Задача → «+» (новая сессия):**
-1. Если в задаче не указана модель — выбор модели (с возможностью сохранить в задачу).
-2. Выбор «Отдельный git worktree» (если у задачи его ещё нет).
-3. Подтверждение → (создаётся/используется worktree) → запускается сессия, задача `new` переходит в `in-progress`.
+### 4.4. Drag-and-drop scenarios
+**Task → "+" (new session):**
+1. If the task doesn't specify a model: model selection (with an option to save it to the task).
+2. The "Separate git worktree" choice (if the task doesn't have one yet).
+3. Confirmation → (the worktree is created/reused) → the session starts, and a `new` task moves to `in-progress`.
 
-**Задача → существующая сессия (только если сессия в состоянии idle):**
-- **Та же задача** (продолжение): модальное окно «Очистить контекст предыдущей сессии?» — **по умолчанию «Да»**, требуется подтверждение.
-- **Другая задача** (в т. ч. другого проекта): очистка контекста **обязательна**. Модальное окно показывает предупреждение: «Сессия сейчас привязана к задаче ARTEL-9 (проект X). Контекст будет очищен, сессия перезапустится в рабочей директории задачи ARTEL-12 (проект Y)». Чекбокс очистки отображается включённым и неактивным.
-- Затем выбор модели, если не задана.
-- Сессия переименовывается под задачу/проект и переключается на рабочую директорию новой задачи.
+**Task → existing session (only if the session is idle):**
+- **The same task** (continuation): a modal "Clear the previous session's context?", **"Yes" by default**, confirmation required.
+- **A different task** (including one from another project): clearing the context is **mandatory**. The modal shows a warning: "The session is currently bound to task ARTEL-9 (project X). The context will be cleared and the session will restart in the working directory of task ARTEL-12 (project Y)". The clear checkbox is shown checked and disabled.
+- Then model selection, if not set.
+- The session is renamed for the task/project and switches to the new task's working directory.
 
-Если сессия занята — drop запрещён (с подсказкой).
+If the session is busy, the drop is refused (with a hint).
 
-### 4.5. Окно задачи
-Сверху слева — заголовок, текст (редактор с drag-and-drop файлов), файлы задачи; справа — статус, «Запустить», переход к сессии, проект, агент, модель, ветка и база (если есть worktree), даты, кнопки «Код» и «Папка»; снизу — история (`history.jsonl`) и, для задачи с worktree, вкладка «Изменения» (diff).
+### 4.5. Task window
+Top left: title, text (editor with drag-and-drop of files), task files; on the right: status, "Launch", go to session, project, agent, model, branch and base (if there is a worktree), dates, the "Code" and "Folder" buttons; at the bottom: history (`history.jsonl`) and, for a task with a worktree, the "Changes" tab (diff).
 
-### 4.6. Уведомления
-Системные уведомления macOS: агент ждёт ответа, ждёт разрешения, завершил ход, ошибка. Клик по уведомлению — фокус на сессии. Бейдж на иконке в Dock = число сессий, ждущих ответа. Всё отключается в настройках (по типам событий).
+### 4.6. Notifications
+macOS system notifications: the agent is waiting for a reply, waiting for permission, finished its turn, error. Clicking a notification focuses the session. The Dock icon badge = the number of sessions waiting for a reply. Everything can be turned off in Settings (per event type).
 
-### 4.7. Лимиты подписки
-Общий сегмент строки состояния содержит компактную колонку каждого выбранного агента: **Claude** и **Kimi**, в каждой — окна **5 часов** и **неделя**. Клик — общий попап со всеми окнами, тарифом Claude (Pro / Max), временем сброса и чекбоксами видимости агентов; те же чекбоксы есть в настройках и сохраняются. Если ни один агент не выбран, в строке состояния остаётся значок «Лимиты», чтобы попап можно было открыть и выбрать агентов снова. Агенты, выключенные в настройках («Основные» → «ИИ-агенты»), не предлагаются для новых сессий и задач, их лимиты не запрашиваются и не показываются; последнего включённого агента выключить нельзя. Для Claude дополнительно показываются **неделя Opus** и **неделя Sonnet**, для Kimi — **месяц (всего)**, если эти окна пришли в ответе.
+### 4.7. Subscription limits
+A shared status bar segment holds a compact column for each selected agent: **Claude** and **Kimi**, each with the **5 hours** and **week** windows. A click opens a shared popover with all windows, the Claude plan (Pro / Max), reset time and per-agent visibility checkboxes; the same checkboxes are in Settings and are persisted. If no agent is selected, the status bar keeps a "Limits" icon so the popover can be opened and agents selected again. Agents turned off in Settings (General → AI Agents) are not offered for new sessions and tasks, and their limits are neither requested nor shown; the last enabled agent cannot be turned off. Claude additionally shows **Opus week** and **Sonnet week**, Kimi shows **month (total)**, if those windows are present in the response.
 
-**Источники данных** (Claude — по образцу [aiusagebar](https://github.com/alxrepin/aiusagebar)):
-- Токены — **существующие логины CLI, только чтение**. Claude: Keychain, элемент `Claude Code-credentials` (поле `claudeAiOauth.accessToken`); запасной вариант — `~/.claude/.credentials.json` (или `$CLAUDE_CONFIG_DIR`). Kimi: `$KIMI_CODE_HOME/credentials/<oauth-key>.json` (по умолчанию `~/.kimi-code/credentials/kimi-code.json`), ключ и региональный `baseUrl` читаются из `[providers."managed:kimi-code"]` в `config.toml`. Приложение **никогда не обновляет и не записывает** эти токены, чтобы не сломать CLI; при 401/403 перечитывает их (CLI сам их обновляет).
-- Claude: `GET https://api.anthropic.com/api/oauth/usage` с заголовками `Authorization: Bearer <token>`, `anthropic-beta: oauth-2025-04-20`. Ответ: `five_hour`, `seven_day`, `seven_day_opus`, `seven_day_sonnet` — у каждого `utilization` (%) и `resets_at`. Тариф — `GET https://api.anthropic.com/api/oauth/profile` (`has_claude_max` / `has_claude_pro`).
-- Kimi: `GET <baseUrl>/usages` (по умолчанию `https://api.kimi.com/coding/v1/usages`) с Bearer-токеном. Ответ: `usages.limit_5h`, `limit_7d`, `limit_month_total` — у каждого `used_ratio` (0…1) и `reset_time`.
-- Обновление раз в минуту (настраивается 1–30 мин) и сразу при открытии попапа; у каждого агента независимые запрос и экспоненциальная пауза при ошибках 429/5xx/сети (с учётом `Retry-After`), на экране остаются последние данные.
-- При 401/403 — перечитать токен; если не помогло — пометка «Войдите в Claude Code / Kimi Code заново» (`claude` / `kimi` → `/login`).
-- Уведомление, когда осталось меньше порога (по умолчанию 15%), одно на окно агента до его сброса; отключается в настройках.
-- Эндпоинты непубличные и могут измениться — URL и заголовки вынесены в одну конфигурацию.
-- При первом чтении Keychain macOS спросит разрешение доступа — в онбординге объяснить, зачем.
+**Data sources** (Claude modeled on [aiusagebar](https://github.com/alxrepin/aiusagebar)):
+- Tokens come from **existing CLI logins, read-only**. Claude: Keychain item `Claude Code-credentials` (field `claudeAiOauth.accessToken`); fallback: `~/.claude/.credentials.json` (or `$CLAUDE_CONFIG_DIR`). Kimi: `$KIMI_CODE_HOME/credentials/<oauth-key>.json` (by default `~/.kimi-code/credentials/kimi-code.json`); the key and the regional `baseUrl` are read from `[providers."managed:kimi-code"]` in `config.toml`. The app **never refreshes or writes** these tokens, so as not to break the CLI; on 401/403 it re-reads them (the CLI refreshes them itself).
+- Claude: `GET https://api.anthropic.com/api/oauth/usage` with headers `Authorization: Bearer <token>`, `anthropic-beta: oauth-2025-04-20`. Response: `five_hour`, `seven_day`, `seven_day_opus`, `seven_day_sonnet`, each with `utilization` (%) and `resets_at`. Plan: `GET https://api.anthropic.com/api/oauth/profile` (`has_claude_max` / `has_claude_pro`).
+- Kimi: `GET <baseUrl>/usages` (by default `https://api.kimi.com/coding/v1/usages`) with a Bearer token. Response: `usages.limit_5h`, `limit_7d`, `limit_month_total`, each with `used_ratio` (0…1) and `reset_time`.
+- Refresh once a minute (configurable, 1–30 min) and immediately when the popover opens; each agent has its own request and exponential backoff on 429/5xx/network errors (honoring `Retry-After`), and the last data stays on screen.
+- On 401/403, re-read the token; if that doesn't help, show "Sign in to Claude Code / Kimi Code again" (`claude` / `kimi` → `/login`).
+- A notification when the remaining share drops below a threshold (15% by default), one per agent window until it resets; can be turned off in Settings.
+- The endpoints are not public and may change: URLs and headers are kept in one configuration.
+- On the first Keychain read macOS asks for access permission; onboarding should explain why.
 
-### 4.9. Документация проекта
-Раздел «Проекты» открывает документацию выбранного проекта — аналог Confluence/Docusaurus внутри приложения.
-- **Где лежит.** Папка документации — в `state.json` приложения (`Project.docsFolder`), в проект ничего не пишется. Без выбора ищется сама: `docs/` сайта Docusaurus (`docusaurus.config.*` в корне или в `website/`), затем `docs/`, `documentation/`, `website/docs/`, `doc/`. Если папки нет — предложение создать документацию (по умолчанию `docs/`, можно выбрать другую папку проекта) со стартовой `index.md`, или указать существующую папку. Коллега с тем же репозиторием указывает папку в своём Artel (меню заголовка «Документация» или настройки проекта).
-- **Структура — как в Docusaurus.** Страница — `.md`/`.mdx`, раздел — папка; страница раздела — `index.md`, `README.md` или `<папка>.md`. Подпись страницы: `sidebar_label` → `title` во frontmatter → первый `# заголовок` → имя файла; порядок — `sidebar_position`, затем имя. Раздел: `label`/`position` из `_category_.json` или `_category_.yml`. Файлы и папки на `_` и `.` пропускаются, папки без страниц (картинки) не показываются. `.excalidraw` — отдельные страницы-диаграммы (только просмотр, правка — в Excalidraw). `sidebars.js` не читается.
-- **Сайдбар раздела:** поиск по всем страницам (все слова, без учёта регистра; совпадения подсвечиваются на странице), группа «Контекст агента» (`CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `.claude/rules/`, спеки из `CLAUDE.md` вне папки документации; новое правило — «+»), дерево документации. Контекстное меню: новая страница / раздел, «Попросить агента…», переименовать, переместить в раздел, показать в Finder, удалить (в Корзину). Перетаскивание страницы на раздел или на заголовок «Документация» переносит её. При переносе и переименовании относительные ссылки на страницу и ссылки самой страницы переписываются во всех страницах и в `@`-импортах файлов контекста.
-- **Новая страница** открывается сразу в редакторе; имя файла — транслитерация заголовка (можно поменять). Новый раздел — папка с `_category_.json` и `index.md`.
-- **Просмотр** (WKWebView, `Resources/DocsRenderer`, без сети): markdown-it, врезки Docusaurus `:::note|tip|info|warning|caution|danger|important` (заголовок — после типа или в `[ ]`), диаграммы ```` ```mermaid ```` (Mermaid), формулы `$…$`, `$$…$$` и ```` ```math ```` (KaTeX), Excalidraw — ```` ```excalidraw ```` с JSON сцены или `![](схема.excalidraw)` (по умолчанию — встроенный упрощённый рендерер на rough.js; точная отрисовка — официальный экспорт Excalidraw, см. ниже), подсветка кода (highlight.js), таблицы, списки задач, якоря заголовков. В `.mdx` строки `import`/`export` скрываются, JSX-теги выводятся как HTML. Картинки и ссылки — относительно страницы; ссылка на другую страницу (в т. ч. без расширения, как в Docusaurus, и с `#якорем`) открывает её здесь, другие файлы — в редакторе кода или своём приложении.
-- **Редактор:** исходный текст (§2.4). `](` и `[[` предлагают страницы (`[[` вставляет ссылку целиком), кнопка «Ссылка» — то же из меню. Картинка из буфера сохраняется в `assets/` рядом со страницей; брошенный файл проекта становится относительной ссылкой, внешний — копируется в `assets/`.
-- **Агент.** «Агент» на странице, «Попросить агента…» в дереве или в контекстном меню выделенного текста (просмотр) / кнопка при выделении (редактор) открывают лист с инструкцией. Запускается сессия без задачи в папке проекта (не в worktree) с промптом: страница, фрагмент с номерами строк файла (выделение в просмотре сопоставляется со строками исходника), инструкция и правила оформления документации. Несохранённые правки страницы сохраняются перед запуском. Пока сессия жива, под заголовком страницы — её статус и «Открыть сессию»; правки агента появляются на странице сами.
-- **Точная отрисовка Excalidraw** — опциональная загрузка, не входит в установщик: `@excalidraw/utils` (MIT) — один ES-модуль ~20 МБ со шрифтами Excalidraw (кириллица и CJK). Загружается по кнопке в настройках («Основные» → «Документация») или на странице `.excalidraw` с jsDelivr (запасной — unpkg), закреплённая версия проверяется по sha256 и хранится в `Application Support/Artel/renderers/`. Пока её нет или она не загрузилась — встроенный рендерер. Удаляется там же в настройках.
-- **Файлы проекта** — кнопка «Файлы» в тулбаре: дерево файлов (без игнорируемых `.gitignore`), markdown открывается так же, остальное — в Quick Look.
+### 4.9. Project documentation
+The Projects section opens the selected project's documentation: a Confluence/Docusaurus equivalent inside the app.
+- **Where it lives.** The documentation folder is stored in the app's `state.json` (`Project.docsFolder`); nothing is written to the project. If none is chosen, it is detected: the `docs/` of a Docusaurus site (`docusaurus.config.*` at the root or in `website/`), then `docs/`, `documentation/`, `website/docs/`, `doc/`. If there is no folder, the app offers "Create Documentation…" (`docs/` by default, another project folder can be chosen) with a starter `index.md`, or "Choose Existing Folder…". A colleague with the same repository points their own Artel at the folder (the "Documentation" header menu or Project Settings).
+- **Structure, as in Docusaurus.** A page is `.md`/`.mdx`, a section is a folder; a section's page is `index.md`, `README.md` or `<folder>.md`. Page label: `sidebar_label` → `title` in frontmatter → the first `# heading` → the file name; order: `sidebar_position`, then name. Section: `label`/`position` from `_category_.json` or `_category_.yml`. Files and folders starting with `_` or `.` are skipped; folders without pages (images) are not shown. `.excalidraw` files are separate diagram pages (view only; edit them in Excalidraw). `sidebars.js` is not read.
+- **Section sidebar:** search across all pages (all words, case-insensitive; matches are highlighted on the page), the "Agent Context" group (`CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `.claude/rules/`, specs from `CLAUDE.md` outside the documentation folder; a new rule via "+"), and the documentation tree. Right-clicking anywhere in the sidebar opens a menu: on a page, drawing or section — New Page / New Excalidraw / New Section there, "Ask Agent…", rename, "Move To" a section, Show in Finder, delete (to the Trash); on an Agent Context file — its own actions; on empty space and the group headers — New Page / New Excalidraw / New Section at the docs root, New Context Rule, Show in Finder, another docs folder. Dragging a page onto a section or onto the "Documentation" header moves it. On move and rename, relative links to the page and the page's own links are rewritten in all pages and in the `@` imports of context files.
+- **A new page** opens straight in the editor; the file name is a transliteration of the title (can be changed). A new section is a folder with `_category_.json` and `index.md`.
+- **Rendering** (WKWebView, `Resources/DocsRenderer`, no network): markdown-it, Docusaurus admonitions `:::note|tip|info|warning|caution|danger|important` (title after the type or in `[ ]`), ```` ```mermaid ```` diagrams (Mermaid), formulas `$…$`, `$$…$$` and ```` ```math ```` (KaTeX), Excalidraw: ```` ```excalidraw ```` with scene JSON or `![](diagram.excalidraw)` (a built-in simplified renderer on rough.js, or Excalidraw's own export once the Excalidraw download is installed, see below); a click on an embedded drawing opens it, code highlighting (highlight.js), tables, task lists, heading anchors. In `.mdx`, `import`/`export` lines are hidden and JSX tags are rendered as HTML. Images and links resolve relative to the page; a link to another page (including one without an extension, as in Docusaurus, and with a `#anchor`) opens it here, other files open in the code editor or their own app.
+- **Editor:** source text (§2.4). `](` and `[[` suggest pages (`[[` inserts the whole link); the "Link" button does the same from a menu. An image from the clipboard is saved to `assets/` next to the page; a dropped project file becomes a relative link, an external one is copied to `assets/`.
+- **Agent.** "Agent" on a page, "Ask Agent…" in the tree or in the context menu of selected text (rendered view) / a button on selection (editor) open a sheet for an instruction. A session without a task is started in the project folder (not in a worktree) with a prompt: the page, the fragment with the file's line numbers (a selection in the rendered view is mapped to source lines), the instruction and the documentation style rules. Unsaved page edits are saved before launch. While the session is alive, its status and "Open Session" are shown under the page title; the agent's edits appear on the page by themselves.
+- **Drawing with Excalidraw** (like the Excalidraw plugin of Obsidian). An optional download, not part of the installer: Excalidraw's editor and exporter (`@excalidraw/excalidraw`, MIT, with React and Excalidraw's fonts), ~15 MB. Built by `scripts/build-excalidraw-editor.sh` (Bun) and published as a separate GitHub release of Artel (`excalidraw-<version>`); the app downloads it via a button in Settings (General → Documentation) or on an `.excalidraw` page, verifies the pinned sha256 and unpacks it into `Application Support/Artel/renderers/`. Without it, drawings are rendered by the built-in renderer and can't be edited in Artel. With it:
+  - an `.excalidraw` page has "Edit": Excalidraw's own editor in place of the page (English UI, the app's theme); saving is explicit as for pages (⌘S, "Done" or ⌘↩, the unsaved dot); Excalidraw's ⌘-shortcuts (undo/redo, select all, duplicate, group…) go to the drawing, copy/paste go through the clipboard;
+  - "New Excalidraw…" in the documentation menus creates an empty `<name>.excalidraw` and opens it for editing;
+  - "Draw" in a page's editor creates `assets/<page>-drawing.excalidraw`, embeds it at the cursor and opens it; "Done" returns to the page. A click on an embedded drawing in the preview opens it the same way;
+  - previews use Excalidraw's own SVG export.
+  `assets/` folders are not shown in the documentation tree.
+- **Project files**: the "Files" toolbar button shows a file tree (excluding `.gitignore`d files); markdown opens the same way, everything else in Quick Look.
 
-### 4.8. Горячие клавиши (предложение)
-| Действие | Клавиши |
+### 4.8. Keyboard shortcuts (proposal)
+| Action | Keys |
 |---|---|
-| Новая задача (окно задачи) | `⌘N` |
-| Поиск по задачам (в «Проектах» — по документации) | `⌘F` / `⌘K` (палитра команд) |
-| Редактировать документ / текст задачи | `⌘E`; выход с сохранением — `Esc` / `⌘↩` |
-| Следующая сессия, ждущая ответа | `⌘J` |
-| Перейти к сессии 1–9 | `⌘1` … `⌘9` |
-| Развернуть / свернуть сессию | `⌘↩` |
-| Переключить вкладку рабочей области | `⌃Tab` / `⌃⇧Tab` |
-| Новая сессия с настройками последней запущенной | `⌘T` |
-| Новая сессия без задачи с выбором настроек | `⌘⇧T` |
-| Новая вкладка рабочей области | `⌥⌘T` |
-| Показать / скрыть список задач | `⌘0` |
-| Показать / скрыть инспектор | `⌥⌘0` |
-| Закоммитить изменения `.artel/` | `⌥⌘S` |
-| Запустить выбранную задачу в новой сессии | `⌘R` |
-| Закрыть / остановить сессию | `⌘W` / `⌘.` (с подтверждением) |
-| Настройки | `⌘,` |
+| New task (task window) | `⌘N` |
+| Search tasks (in Projects: search documentation) | `⌘F` / `⌘K` (command palette) |
+| Edit a document / task text | `⌘E`; leave with saving: `Esc` / `⌘↩` |
+| Next session waiting for a reply | `⌘J` |
+| Go to session 1–9 | `⌘1` … `⌘9` |
+| Expand / collapse a session | `⌘↩` |
+| Switch workspace tab | `⌃Tab` / `⌃⇧Tab` |
+| New session with the settings of the last launched one | `⌘T` |
+| New session without a task, choosing its settings | `⌘⇧T` |
+| New workspace tab | `⌥⌘T` |
+| Show / hide the task list | `⌘0` |
+| Show / hide the inspector | `⌥⌘0` |
+| Commit `.artel/` changes | `⌥⌘S` |
+| Launch the selected task in a new session | `⌘R` |
+| Close / stop a session | `⌘W` / `⌘.` (with confirmation) |
+| Settings | `⌘,` |
 
 ---
 
-## 5. Сессии и агент
+## 5. Sessions and the agent
 
-### 5.1. Запуск
-- Агент запускается **через CLI `claude`** (используются ресурсы подписки, не API-токены).
-- Каждая сессия — процесс внутри **tmux** на отдельном сокете приложения (`tmux -L artel`). Терминал в UI — встроенный эмулятор (SwiftTerm), подключённый к tmux-сессии.
-- Параметры запуска:
-  - рабочая директория — worktree задачи;
+### 5.1. Launch
+- The agent is started **through the `claude` CLI** (subscription resources are used, not API tokens).
+- Each session is a process inside **tmux** on the app's own socket (`tmux -L artel`). The terminal in the UI is an embedded emulator (SwiftTerm) attached to the tmux session.
+- Launch parameters:
+  - working directory: the task worktree;
   - `--model <model>`;
-  - `--permission-mode` из настроек проекта (по умолчанию `auto`);
-  - `--settings <файл приложения>` — хуки интеграции (не трогаем пользовательские настройки проекта);
-  - `--add-dir <папка задачи>` — доступ к вложениям;
-  - переменная окружения `ARTEL_SESSION_ID`.
-- Первое сообщение в сессию — обвязка (id и заголовок задачи, проект, worktree и ветка, путь к папке задачи) + текст `task.md`.
+  - `--permission-mode` from Project Settings (`auto` by default);
+  - `--settings <app file>`: integration hooks (the user's project settings are left untouched);
+  - `--add-dir <task folder>`: access to attachments;
+  - the `ARTEL_SESSION_ID` environment variable.
+- The first message in the session is the wrapper (task ID and title, project, worktree and branch, path to the task folder) plus the text of `task.md`.
 
-### 5.2. Интеграция: состояние сессий
-Через **хуки Claude Code** → маленький бинарь `artel-hook` → unix-сокет приложения:
-- `UserPromptSubmit` / `PreToolUse` → `работает`;
-- `Notification` → `ждёт ответа` / `ждёт разрешения` (+ текст вопроса);
-- `Stop` → `завершена (idle)`, конец хода;
-- `SessionStart` → сохраняем `session_id` Claude для восстановления.
+### 5.2. Integration: session state
+Via **Claude Code hooks** → a small `artel-hook` binary → the app's unix socket:
+- `UserPromptSubmit` / `PreToolUse` → `working`;
+- `Notification` → `waiting for reply` / `waiting for permission` (+ the question text);
+- `Stop` → `finished (idle)`, end of turn;
+- `SessionStart` → the Claude `session_id` is saved for restoring.
 
-Ответы на вопросы и разрешения — **внутри терминала** (в v1 без отдельных кнопок).
+Questions and permissions are answered **inside the terminal** (no separate buttons in v1).
 
-### 5.3. Интеграция: работа агента с задачей
-Отдельного канала нет: агент получает задачу первым сообщением и папку задачи через `--add-dir`. Статус задачи меняет только приложение (запуск) и оператор. Ручные правки `task.md` подхватываются по изменению файлов.
+### 5.3. Integration: the agent working on a task
+There is no separate channel: the agent gets the task as its first message and the task folder via `--add-dir`. The task status is changed only by the app (on launch) and by the operator. Manual edits to `task.md` are picked up on file change.
 
-### 5.4. Очистка контекста и смена задачи в сессии
-- Та же задача, без очистки — продолжение в текущем контексте.
-- Очистка контекста или задача из другого worktree/проекта — процесс агента в слоте перезапускается в новой рабочей директории; слот сессии (место в сетке, вкладка) сохраняется и переименовывается.
-- Смена модели без перезапуска — `/model`.
+### 5.4. Clearing the context and switching tasks in a session
+- Same task, no clearing: continue in the current context.
+- Clearing the context, or a task from another worktree/project: the agent process in the slot restarts in the new working directory; the session slot (grid position, tab) is kept and renamed.
+- Switching the model without a restart: `/model`.
 
-### 5.5. Сохранение и восстановление
-- Состояние рабочей области (вкладки, сетка, привязка сессий к задачам, `session_id`) сохраняется постоянно.
-- Закрытие приложения **не останавливает** сессии: tmux продолжает работать; при открытии приложение переподключается — всё там же, где было.
-- Если tmux-сессия пропала (перезагрузка Mac) — сессия восстанавливается через `claude --resume <session_id>` в той же директории.
-- Остановка сессии — только явным действием в приложении.
+### 5.5. Saving and restoring
+- The workspace state (tabs, grid, session-to-task bindings, `session_id`) is saved continuously.
+- Quitting the app **does not stop** sessions: tmux keeps running; on launch the app reattaches and everything is where it was.
+- If a tmux session is gone (Mac reboot), the session is restored via `claude --resume <session_id>` in the same directory.
+- A session is stopped only by an explicit action in the app.
 
-### 5.6. Абстракция агента
-Протокол `CodingAgent`: команда запуска, параметры (модель, режим разрешений), способ интеграции (хуки), список моделей, команды очистки контекста/смены модели, источник данных о лимитах. v1 — `ClaudeCodeAgent` и `KimiCodeAgent` (у Kimi Code хуки в `~/.kimi-code/config.toml`, resume через `kimi --session <id>`); позже — Codex CLI, Gemini CLI и т. д.
-
----
-
-## 6. Настройки приложения
-- Путь к `claude` и `tmux` (автоопределение, проверка версии).
-- Хранение `.artel/` в git по умолчанию для новых проектов.
-- Лимиты: интервал обновления, порог уведомления.
-- Корень worktree (по умолчанию `~/.artel/worktrees`).
-- Уведомления: вкл/выкл по типам событий, звук.
-- Поведение сетки: размер карточек, сортировка ожидающих вперёд.
-- Шаблон новой задачи и системной обвязки промпта.
-- Список моделей и модель по умолчанию.
+### 5.6. Agent abstraction
+The `CodingAgent` protocol: launch command, parameters (model, permission mode), integration method (hooks), list of models, commands for clearing the context / switching the model, the source of limits data. v1: `ClaudeCodeAgent` and `KimiCodeAgent` (Kimi Code's hooks are in `~/.kimi-code/config.toml`, resume via `kimi --session <id>`); later: Codex CLI, Gemini CLI, etc.
 
 ---
 
-## 7. Технологии
-- Swift 6, SwiftUI (+ AppKit там, где нужно: терминал, drag-and-drop файлов), macOS 26+, arm64.
-- Терминал: SwiftTerm.
-- Просмотр markdown: WKWebView со своей схемой `artel-res://` и библиотеками markdown-it, markdown-it-container, KaTeX, Mermaid, highlight.js, rough.js (MIT/BSD) — `scripts/fetch-docs-web.sh` скачивает закреплённые версии с проверкой sha256, `build-app.sh` кладёт их в `Contents/Resources/DocsRenderer/vendor`. Excalidraw по умолчанию рисуется собственным рендерером на rough.js; официальный экспорт (`@excalidraw/utils`, ~20 МБ) скачивается по желанию оператора (§4.9).
-- Сессии: tmux. При первом запуске приложение ищет установленный `tmux` (`PATH`, `/opt/homebrew/bin`, `/usr/local/bin`). Если его нет — использует **tmux, вложенный в приложение** (tmux 3.5a со статическим libevent и системным ncurses, arm64, подписан вместе с приложением): копирует его в `~/Library/Application Support/Artel/bin/` и работает с ним. Homebrew не нужен; оператор ничего не ставит вручную. В настройках можно явно выбрать встроенный.
-- Аналогично проверяется `claude`: если не найден — онбординг показывает команду установки и кнопку «Установить» (официальный установщик Claude Code), затем просит выполнить вход (`claude` → `/login`).
-- Git: системный `git` CLI.
-- Состояние приложения (реестр проектов, раскладка, настройки) — JSON/SQLite в `~/Library/Application Support/Artel/`; данные задач — только в `.md`-файлах проектов.
-
-### Модули
-- `ArtelApp` — UI.
-- `ArtelCore` — модели, парсинг/запись `task.md`, стейт-машина статусов сессий, наблюдение за файлами.
-- `AgentKit` — протокол `CodingAgent`, `ClaudeCodeAgent`.
-- `SessionKit` — tmux, жизненный цикл сессий, восстановление.
-- `GitKit` — worktree, diff.
-- `IntegrationServer` — unix-сокет; бинарь `artel-hook`.
+## 6. App settings
+- Path to `claude` and `tmux` (auto-detection, version check).
+- Whether to keep `.artel/` in git by default for new projects.
+- Limits: refresh interval, notification threshold.
+- Worktree root (`~/.artel/worktrees` by default).
+- Notifications: on/off per event type, sound.
+- Grid behavior: card size, sorting waiting sessions first.
+- New task template and the system prompt wrapper.
+- List of models and the default model.
 
 ---
 
-## 8. Этапы
-1. **MVP-0: сессии.** Проекты, ручной запуск `claude` в сетке с tmux, хуки состояния, карточки «ждёт ответа», уведомления, восстановление после перезапуска.
-2. **MVP-1: задачи.** `.artel/tasks`, редактор задачи с drag-and-drop референсов, список с группировкой/фильтрами/поиском, быстрый ввод, drag-and-drop задачи в сессию, worktree.
-3. **MVP-2: цикл** (убран). MCP-сервер, статусы и переходы агентом, план/замечания/прогресс, ревью и тестирование, merge при `done`. Из него осталась вкладка diff.
-4. **v1.** Вкладки, лимиты подписки, горячие клавиши, полировка.
+## 7. Technology
+- Swift 6, SwiftUI (+ AppKit where needed: terminal, file drag-and-drop), macOS 26+, arm64.
+- Terminal: SwiftTerm.
+- Markdown rendering: WKWebView with a custom `artel-res://` scheme and the markdown-it, markdown-it-container, KaTeX, Mermaid, highlight.js and rough.js libraries (MIT/BSD); `scripts/fetch-docs-web.sh` downloads pinned versions with sha256 verification, `build-app.sh` puts them into `Contents/Resources/DocsRenderer/vendor`. By default Excalidraw is drawn by a custom renderer on rough.js; Excalidraw's editor and exporter (~15 MB, built with Bun by `scripts/build-excalidraw-editor.sh`, published as a GitHub release) are downloaded at the operator's request (§4.9).
+- Sessions: tmux. On first launch the app looks for an installed `tmux` (`PATH`, `/opt/homebrew/bin`, `/usr/local/bin`). If there is none, it uses the **tmux bundled with the app** (tmux 3.5a with static libevent and the system ncurses, arm64, signed together with the app): it copies it to `~/Library/Application Support/Artel/bin/` and works with that. Homebrew is not needed; the operator installs nothing by hand. The bundled one can be selected explicitly in Settings.
+- `claude` is checked the same way: if it is not found, onboarding shows the install command and an "Install" button (the official Claude Code installer), then asks to sign in (`claude` → `/login`).
+- Git: the system `git` CLI.
+- App state (project registry, layout, settings): JSON/SQLite in `~/Library/Application Support/Artel/`; task data lives only in the projects' `.md` files.
+
+### Modules
+- `ArtelApp`: UI.
+- `ArtelCore`: models, parsing/writing `task.md`, the session status state machine, file watching.
+- `AgentKit`: the `CodingAgent` protocol, `ClaudeCodeAgent`.
+- `SessionKit`: tmux, session lifecycle, restoring.
+- `GitKit`: worktree, diff.
+- `IntegrationServer`: the unix socket; the `artel-hook` binary.
 
 ---
 
-## 9. Принятые решения (история)
-- `.artel/` хранится в git по умолчанию, опция `.gitignore` в настройках; момент коммита `.artel/` выбирает оператор (действие в приложении), автокоммитов нет.
-- Префикс ID задач — `ARTEL` по умолчанию, настраивается на проект.
-- Перенос задачи в сессию другой задачи — очистка контекста обязательна, с предупреждением.
-- Лимиты — через существующие OAuth-логины Claude Code и Kimi Code (только чтение) и их API `/usage` / `/usages`; видимость каждого агента настраивается чекбоксами.
-- tmux — системный, если есть; иначе встроенный в приложение.
-- Цикл задачи (план → ревью → тестирование → приёмка, замечания, `aide-mcp`, автоматический merge) убран: задача — промпт с вложениями, worktree — по выбору при запуске, слияние ветки — за оператором. Приоритеты и зависимости задач убраны вместе с ним.
+## 8. Milestones
+1. **MVP-0: sessions.** Projects, manual `claude` launch in a grid with tmux, state hooks, "waiting for reply" cards, notifications, restoring after a restart.
+2. **MVP-1: tasks.** `.artel/tasks`, a task editor with drag-and-drop of references, a list with grouping/filters/search, quick entry, dragging a task into a session, worktree.
+3. **MVP-2: cycle** (removed). MCP server, statuses and transitions by the agent, plan/review comments/progress, review and testing, merge on `done`. The diff tab is what remains of it.
+4. **v1.** Tabs, subscription limits, keyboard shortcuts, polish.
 
-## 10. Открытые вопросы
-Нет. Следующий шаг — реализация MVP-0.
+---
+
+## 9. Decisions made (history)
+- `.artel/` is kept in git by default, with a `.gitignore` option in settings; the operator chooses when to commit `.artel/` (an action in the app); there are no automatic commits.
+- The task ID prefix is `ARTEL` by default, configurable per project.
+- Moving a task into a session of another task: clearing the context is mandatory, with a warning.
+- Limits: via the existing Claude Code and Kimi Code OAuth logins (read-only) and their `/usage` / `/usages` APIs; each agent's visibility is set with checkboxes.
+- tmux: the system one if present; otherwise the one bundled with the app.
+- The task cycle (plan → review → testing → acceptance, review comments, `aide-mcp`, automatic merge) was removed: a task is a prompt with attachments, the worktree is optional at launch, and merging the branch is up to the operator. Task priorities and dependencies were removed along with it.
+
+## 10. Open questions
+None. Next step: implementing MVP-0.

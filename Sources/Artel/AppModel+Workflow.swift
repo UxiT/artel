@@ -1,7 +1,7 @@
 import ArtelCore
 import AppKit
 
-/// "Готово" for a task with a worktree: the operator decides what happens to it.
+/// "Done" for a task with a worktree: the operator decides what happens to it.
 struct DoneRequest: Identifiable {
     let id = UUID()
     var taskID: String
@@ -36,16 +36,16 @@ extension AppModel {
         if removeWorktree, let git, let wt = t.worktree {
             do {
                 try git.removeWorktree(repo: project.path, path: wt)
-                record(t, TaskHistoryEntry(actor: .artel, kind: .note, text: "Worktree удалён"))
+                record(t, TaskHistoryEntry(actor: .artel, kind: .note, text: "Worktree removed"))
                 t.worktree = nil
                 if deleteBranch, let branch = t.branch {
                     // Not forced: git refuses to drop a branch that isn't merged anywhere.
                     try git.deleteBranch(repo: project.path, branch: branch, force: false)
-                    record(t, TaskHistoryEntry(actor: .artel, kind: .note, text: "Ветка \(branch) удалена"))
+                    record(t, TaskHistoryEntry(actor: .artel, kind: .note, text: "Branch \(branch) deleted"))
                     t.branch = nil
                 }
             } catch {
-                errorMessage = "Задача закрыта, но git не смог убрать worktree/ветку: \(error.localizedDescription)"
+                errorMessage = "The task is closed, but git couldn't remove the worktree or branch: \(error.localizedDescription)"
             }
         }
         t.status = .done

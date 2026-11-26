@@ -60,20 +60,20 @@ public enum ProjectValidator {
         """
         # \(projectName)
 
-        ## Описание
-        <!-- Обязательно: что это за проект, для кого и зачем. -->
+        ## Description
+        <!-- Required: what the project is, who it is for and why. -->
 
-        ## Стек
-        <!-- Языки, фреймворки, ключевые библиотеки. Подробности — в docs/stack.md -->
+        ## Stack
+        <!-- Languages, frameworks, key libraries. Details in docs/stack.md -->
 
-        ## Архитектура
-        <!-- Основные модули и как они связаны. Подробности — в docs/arch.md -->
+        ## Architecture
+        <!-- Main modules and how they connect. Details in docs/arch.md -->
 
-        ## Команды
-        <!-- Как собрать, запустить, прогнать тесты и линтеры. -->
+        ## Commands
+        <!-- How to build, run, test and lint. -->
 
-        ## Соглашения
-        <!-- Стиль кода, правила коммитов, что агенту делать нельзя. -->
+        ## Conventions
+        <!-- Code style, commit rules, what the agent must not do. -->
         """
     }
 }
