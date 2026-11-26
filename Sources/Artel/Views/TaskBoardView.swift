@@ -1,7 +1,7 @@
 import ArtelCore
 import SwiftUI
 
-/// Top-level sections in toolbar order (⌥⌘1…3 follow it).
+/// Top-level sections in rail order (⌥⌘1…3 follow it).
 enum AppSection: String, CaseIterable, Identifiable {
     case workspace, projects, tasks
     var id: String { rawValue }

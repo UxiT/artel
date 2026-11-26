@@ -107,7 +107,8 @@ enum DebugScript {
 
     /// Virtual key codes of the keys debug scripts press (ANSI layout).
     static func keyCode(_ key: String) -> UInt16 {
-        let codes: [String: UInt16] = ["a": 0, "s": 1, "z": 6, "x": 7, "c": 8, "v": 9, "r": 15, "e": 14, "\r": 36, "\u{1b}": 53, "\u{7f}": 51]
+        let codes: [String: UInt16] = ["a": 0, "s": 1, "z": 6, "x": 7, "c": 8, "v": 9, "r": 15, "e": 14, "\r": 36, "\u{1b}": 53, "\u{7f}": 51,
+                                      "[": 33, "\u{F700}": 126, "\u{F701}": 125]
         return codes[key.lowercased()] ?? 0
     }
 

@@ -38,7 +38,7 @@ struct ArtelApp: App {
                 }
         }
         .defaultSize(width: 1500, height: 900)
-        .windowToolbarStyle(.unified)
+        .windowStyle(.hiddenTitleBar)
         .commands { ArtelCommands(model: model, updater: updater) }
 
         // The task window: not modal, so sessions stay usable while a task is open.
@@ -135,6 +135,14 @@ struct ArtelCommands: Commands {
                     .keyboardShortcut(KeyEquivalent(Character("\(i + 1)")), modifiers: [.command, .option])
             }
             Divider()
+        }
+        CommandGroup(replacing: .sidebar) {
+            // The main window's tool panel (`ContentView` keeps it in the same defaults key).
+            Button("Show / Hide Tool Panel") {
+                let key = "islands.panelVisible"
+                UserDefaults.standard.set(!(UserDefaults.standard.object(forKey: key) as? Bool ?? true), forKey: key)
+            }
+            .keyboardShortcut("s", modifiers: [.command, .control])
         }
         CommandMenu("Tasks") {
             Button("Search") { model.request(focus: .search) }

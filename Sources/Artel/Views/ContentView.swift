@@ -2,37 +2,24 @@ import ArtelCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// One window structure for every section: a sidebar (tasks and sessions, or projects in the projects section)
-/// and a detail column; search, filters and the main actions live in the toolbar.
+/// The main window, IDE style (see `IslandsLayout.swift`): the title bar on top, the section rail on the left,
+/// the section's tool panel and the content as rounded islands, the status bar at the bottom.
 struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openSettings) private var openSettings
-    @State private var columnVisibility = NavigationSplitViewVisibility.all
+    @AppStorage("islands.panelVisible") private var panelVisible = true
+    @AppStorage("islands.panelWidth") private var panelWidth = 360.0
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        @Bindable var model = model
-        Group {
-            if DebugSnapshot.enabled {
-                // Snapshots can't draw the floating glass sidebar: lay it out flat so its content is visible.
-                HStack(spacing: 0) {
-                    sidebar.frame(width: 270)
-                    Divider()
-                    detail
-                }
-            } else {
-                NavigationSplitView(columnVisibility: $columnVisibility) {
-                    sidebar.navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 400)
-                } detail: {
-                    detail
-                }
-            }
+        // The system titlebar's height (the top safe area): the bar matches it, so the traffic lights sit centred.
+        GeometryReader { geo in
+            layout(titleBarHeight: max(28, geo.safeAreaInsets.top), width: geo.size.width)
+                .ignoresSafeArea(.container, edges: .top)
         }
         .navigationTitle(model.section.title)
-        .navigationSubtitle(subtitle)
-        .toolbar(id: "main") { MainToolbar() }
         .background(WindowReader { window in
             guard model.mainWindow !== window else { return }
             model.mainWindow = window
@@ -48,6 +35,7 @@ struct ContentView: View {
         .onChange(of: model.debugOpenSettings) { _, _ in openSettings() }
         .onChange(of: model.focusRequest) { _, request in
             guard request == .search else { return }
+            panelVisible = true  // the task search is in the tool panel
             // The search field appears with the section: give it a moment after a section switch.
             DispatchQueue.main.async {
                 searchFocused = true
@@ -56,39 +44,65 @@ struct ContentView: View {
         }
     }
 
-    @ViewBuilder private var sidebar: some View {
-        if model.section == .projects {
-            ProjectListSidebar()
-        } else {
-            SidebarView()
+    /// The panel never takes the content below this width.
+    private static let minContentWidth = 420.0
+    private static let minPanelWidth = 240.0
+
+    private func layout(titleBarHeight: CGFloat, width: CGFloat) -> some View {
+        // The panel's width is capped by what the window leaves after the rail and the content's minimum.
+        let maxPanel = max(Self.minPanelWidth, width - Islands.railWidth - Islands.gap * 2 - Self.minContentWidth)
+        let shownPanel = min(max(panelWidth, Self.minPanelWidth), maxPanel)
+        return VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
+                // Left column: the top row (traffic lights, then the panel's header) over the rail and the panel.
+                VStack(spacing: 0) {
+                    Group {
+                        if panelVisible {
+                            PanelHeader(visible: $panelVisible)
+                        } else {
+                            WindowDragArea()
+                        }
+                    }
+                    .frame(height: titleBarHeight)
+                    HStack(spacing: 0) {
+                        ToolRail(panelVisible: $panelVisible)
+                            .fixedSize(horizontal: true, vertical: false)
+                        if panelVisible {
+                            Island(alignment: .topLeading) { ToolPanel(searchFocused: $searchFocused) }
+                                .frame(width: shownPanel)
+                        }
+                    }
+                }
+                .frame(width: Islands.railWidth + (panelVisible ? shownPanel : 0))
+                if panelVisible {
+                    PanelResizeHandle(width: $panelWidth, current: shownPanel, range: Self.minPanelWidth...maxPanel)
+                }
+                // Up to the window's top edge; with the panel hidden it starts below the traffic lights.
+                Island { detail }
+                    .padding(.top, panelVisible ? Islands.gap : titleBarHeight)
+            }
+            .padding(.trailing, Islands.gap)
+            // Pinned to the left edge: if the content still doesn't fit, it overflows to the right and is clipped,
+            // instead of an HStack centring its overflow and pushing the rail out of the window.
+            .frame(width: width, alignment: .leading)
+            .clipped()
+            StatusBar()
         }
+        .background(Islands.canvas)
     }
 
     @ViewBuilder private var detail: some View {
-        @Bindable var model = model
         VStack(spacing: 0) {
             SetupBanner()
             switch model.section {
             case .workspace:
                 WorkspaceView()
             case .tasks:
-                TaskBoardView().searchable(text: $model.taskFilter.search, placement: .toolbar, prompt: "Search Tasks")
-                    .searchFocused($searchFocused)
+                TaskBoardView()
             case .projects:
                 ProjectsView()
             }
-            Divider()
-            StatusBar()
         }
-    }
-
-    /// Projects: the project's folder. Elsewhere: how many sessions wait for the operator.
-    private var subtitle: String {
-        if model.section == .projects {
-            return model.docsProjectID.flatMap(model.project)?.path ?? ""
-        }
-        let waiting = model.attentionSessions.count
-        return waiting > 0 ? "Waiting for you: \(waiting)" : ""
     }
 }
 
@@ -142,79 +156,6 @@ private struct MainWindowDialogs: ViewModifier {
             if let tab = model.tabToClose {
                 let active = model.activeSessions(inTab: tab.id).count
                 Text("Active sessions: \(active). All sessions in this tab will be force-stopped and removed from the workspace.")
-            }
-        }
-    }
-}
-
-/// Main window toolbar: section switcher in the centre, the frequent actions on the right.
-/// Customizable (right-click the toolbar); "Add Project" is available there but hidden by default.
-private struct MainToolbar: CustomizableToolbarContent {
-    @Environment(AppModel.self) private var model
-
-    var body: some CustomizableToolbarContent {
-        @Bindable var model = model
-        ToolbarItem(id: "section", placement: .principal) {
-            Picker("Section", selection: $model.section) {
-                ForEach(AppSection.allCases) { section in
-                    Label(section.title, systemImage: section.symbol).tag(section)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelStyle(.titleAndIcon)
-            .help(AppSection.shortcutsHelp)
-        }
-        ToolbarItem(id: "filter", placement: .primaryAction) {
-            if model.section == .tasks {
-                FilterMenu()
-                    .disabled(model.state.projects.isEmpty)
-            }
-        }
-        ToolbarItem(id: "projectActions", placement: .primaryAction) {
-            ProjectToolbarActions()
-        }
-        ToolbarItem(id: "addProject", placement: .primaryAction, showsByDefault: false) {
-            Button { ProjectPicker.present(model) } label: { Label("Add Project", systemImage: "folder.badge.plus") }
-                .help("Add a project (⇧⌘O)")
-        }
-        ToolbarItem(id: "newSession", placement: .primaryAction) {
-            Button { model.newSessionRequest = NewSessionRequest(projectID: model.focusedProjectID) } label: {
-                Label("New Session", systemImage: "plus.rectangle.on.rectangle")
-            }
-            .help("New session without a task (\(AppShortcuts.newSessionWithoutTask.display))")
-            .disabled(model.state.projects.isEmpty || !model.isReady)
-        }
-        ToolbarItem(id: "newTask", placement: .primaryAction) {
-            Button { model.requestNewTask() } label: { Label("New Task", systemImage: "square.and.pencil") }
-                .help("New task (⌘N)")
-                .disabled(model.state.projects.isEmpty)
-        }
-    }
-}
-
-/// Projects section: open the code, reveal in Finder, project settings — for the selected project.
-private struct ProjectToolbarActions: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        if model.section == .projects, let id = model.docsProjectID, let project = model.project(id) {
-            @Bindable var model = model
-            Toggle(isOn: $model.showsProjectFiles) {
-                Label("Files", systemImage: "list.bullet.indent")
-            }
-            .toggleStyle(.button)
-            .help(model.showsProjectFiles ? "Back to documentation" : "Show project files")
-            ControlGroup {
-                Button { model.openInEditor(projectID: project.id, root: project.url) } label: {
-                    Label("Open Code", systemImage: "chevron.left.forwardslash.chevron.right")
-                }
-                .help("Open the project in a code editor")
-                Button { NSWorkspace.shared.activateFileViewerSelecting([project.url]) } label: {
-                    Label("Show in Finder", systemImage: "folder")
-                }
-                .help("Show the project folder in Finder")
-                Button { model.projectSettingsID = project.id } label: { Label("Project Settings", systemImage: "gearshape") }
-                    .help("Project settings")
             }
         }
     }

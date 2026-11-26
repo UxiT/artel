@@ -157,7 +157,7 @@ struct SessionGrid: View {
                     NewSessionTile().padding(spacing)
                 } else {
                     ContentUnavailableView("No Sessions", systemImage: "rectangle.on.rectangle",
-                                           description: Text("Create a session with the toolbar button or drag a task here."))
+                                           description: Text("Create a session with “New Session” in the Agent Sessions panel or drag a task here."))
                 }
             } else {
                 let reserved = model.isDraggingTask ? plusWidth + spacing * 3 : spacing * 2

@@ -33,7 +33,7 @@ After that Artel updates itself via [Sparkle](https://sparkle-project.org): at e
 
 1. Add a project: any folder (⇧⌘O or drag it from Finder). If it has no `CLAUDE.md` or git, Artel offers a template and `git init`; you can decline. Without git, tasks run directly in the project folder, without a separate worktree.
 2. Open a session (⇧⌘T), or create a task (⌘N) and drag it onto "+" in the session grid.
-3. Work in the agent's terminal as usual. Sessions waiting for you are collected under "Waiting for You" in the sidebar; ⌘J jumps to the next one.
+3. Work in the agent's terminal as usual. Sessions waiting for you are counted in the title bar and marked in the Agent Sessions panel; ⌘J jumps to the next one.
 
 ## Features
 
@@ -41,7 +41,7 @@ After that Artel updates itself via [Sparkle](https://sparkle-project.org): at e
 - **Task board:** "New / In Progress / Done". Files go into the task text as `@path` references or are copied into attachments.
 - **Optional worktree:** a task gets its own working copy and branch `artel/<ID>-<slug>`; the "Changes" tab shows the diff. You merge the branch yourself: Artel never merges anything.
 - **Sessions without a task** are kept in the no-task archive for 7 days; a useful one can be added to the board. The archive can be turned off in Settings, in the New Session window or in the card menu.
-- **Project documentation** inside the app: pages in `docs/` (Docusaurus-compatible), Mermaid and Excalidraw diagrams (draw Excalidraw diagrams right in a page, like in Obsidian, after a one-time ~15 MB download in Settings), formulas, `:::note` admonitions, search, links with autocompletion, images pasted from the clipboard. You can hand a page or a selected fragment to an agent. Alongside are `CLAUDE.md` and the agent context rules; project files are behind the "Files" toolbar button.
+- **Project documentation** inside the app: pages in `docs/` (Docusaurus-compatible), Mermaid and Excalidraw diagrams (draw Excalidraw diagrams right in a page, like in Obsidian, after a one-time ~15 MB download in Settings), formulas, `:::note` admonitions, search, links with autocompletion, images pasted from the clipboard. You can hand a page or a selected fragment to an agent. Alongside are `CLAUDE.md` and the agent context rules; project files are behind the "Files" button in the title bar.
 - **Markdown is always rendered** (tasks, documentation); "Edit" (⌘E) opens the source text, Esc / ⌘↩ / "Done" save and return to the rendered view, unsaved changes are marked with a dot.
 - **Subscription limits** for Claude Code and Kimi Code in the status bar, with a notification at a threshold. They are read through your existing CLI logins, read-only.
 
@@ -93,7 +93,7 @@ Artel.app ──tmux new-session──▶ tmux -L artel ──▶ claude --setti
 | ⌘W / ⌘. | close / stop a session with confirmation (in the main window); in a task window and in Settings ⌘W closes the window |
 | ⏎ / double-click | open the selected task or session archive |
 | ⌥← / ⌥→ | on the board: move the selected task to the adjacent column |
-| ⌃⌘S | show / hide the sidebar |
+| ⌃⌘S | show / hide the tool panel (or click the open section's icon in the rail) |
 | ⇧↩ | in a session terminal: new line in the agent prompt |
 
 </details>
@@ -112,4 +112,4 @@ Architecture, debug variables (`ARTEL_HOME`, `ARTEL_SNAPSHOT`…) and rules for 
 
 ## License
 
-[GNU GPL v3.0](LICENSE) © 2026 UxiT. GPL was chosen because of the [STTextView](https://github.com/krzyzanowskim/STTextView) editor, which is linked into the app statically. Licenses of the other dependencies (MIT, BSD, ISC) are in `Artel.app/Contents/Resources/Licenses/`.
+[GNU GPL v3.0](LICENSE) © 2026 UxiT. Licenses of the dependencies (MIT, BSD, ISC, Apache-2.0) are in `Artel.app/Contents/Resources/Licenses/`.

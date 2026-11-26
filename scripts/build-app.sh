@@ -48,10 +48,15 @@ rm -f "$APP/Contents/Resources/DocsRenderer/vendor/.complete-"*
 for b in "$BIN"/*.bundle(N); do cp -R "$b" "$APP/Contents/Resources/"; done
 # Licenses: Artel's own (GPL-3.0) and those of everything bundled in the app.
 LIC="$APP/Contents/Resources/Licenses"
+rm -rf "$LIC"
 mkdir -p "$LIC"
 cp LICENSE "$LIC/Artel.txt"
-for dir in .build/checkouts/*(/N); do
-  for f in $dir/(LICENSE|COPYING)*(N.); do cp "$f" "$LIC/${dir:t}.txt"; break; done
+# Only packages pinned in Package.resolved: .build/checkouts keeps dependencies that were removed.
+for loc in ${(f)"$(sed -n 's/.*"location" : "\(.*\)".*/\1/p' Package.resolved)"}; do
+  name=${${loc:t}%.git}
+  dir=.build/checkouts/$name
+  [[ -d $dir ]] || { echo "no checkout for $name" >&2; exit 1; }
+  for f in $dir/(LICENSE|COPYING)*(N.); do cp "$f" "$LIC/$name.txt"; break; done
 done
 cp build/vendor/licenses/*.txt "$LIC/"
 

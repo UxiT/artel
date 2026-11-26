@@ -1,7 +1,6 @@
 import ArtelCore
 import AppKit
 import MarkdownUI
-import STTextView
 import SwiftUI
 
 /// What the page editor can complete after `](` and `[[`: the documentation pages, linked relative to `page`.
@@ -10,7 +9,7 @@ struct LinkCompletionSource {
     var pages: [(path: String, title: String)]
 }
 
-/// Markdown text editor (STTextView, TextKit 2) with light syntax highlighting.
+/// Markdown text editor (NSTextView) with light syntax highlighting.
 /// Dropped files/URLs become references at the drop point via `referencesForDrop`; a pasted image goes through
 /// `pasteImage`. Esc and ⌘⏎ call `onExit` (leave the editor).
 struct MarkdownTextEditor: NSViewRepresentable {
@@ -28,10 +27,11 @@ struct MarkdownTextEditor: NSViewRepresentable {
     var font: FontChoice = AppFonts.shared.settings.editor
     var codeFont: FontChoice = AppFonts.shared.settings.code
 
-    final class EditorView: STTextView {
+    final class EditorView: NSTextView {
         var referencesForDrop: (([URL]) -> [String])?
         var pasteImage: ((Data) -> String?)?
         var onExit: (() -> Void)?
+        let completionPopup = CompletionPopup()
 
         override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
             super.readablePasteboardTypes + [.fileURL, .URL]
@@ -43,8 +43,10 @@ struct MarkdownTextEditor: NSViewRepresentable {
             guard !urls.isEmpty, let refs = referencesForDrop?(urls), !refs.isEmpty else {
                 return super.performDragOperation(sender)
             }
-            // draggingUpdated has already moved the caret under the pointer.
-            insertText(refs.joined(separator: "\n"), replacementRange: selectedRange())
+            let index = characterIndexForInsertion(at: convert(sender.draggingLocation, from: nil))
+            let at = NSRange(location: min(index, (string as NSString).length), length: 0)
+            window?.makeFirstResponder(self)
+            insertText(refs.joined(separator: "\n"), replacementRange: at)
             return true
         }
 
@@ -68,9 +70,24 @@ struct MarkdownTextEditor: NSViewRepresentable {
             return rep.representation(using: .png, properties: [:])
         }
 
-        /// Esc leaves the editor (unless the completion list is open).
+        /// While the completion list is open the arrows move through it, ⏎/⇥ insert the item and Esc closes it.
+        override func doCommand(by selector: Selector) {
+            if completionPopup.isVisible {
+                switch selector {
+                case #selector(moveUp(_:)): completionPopup.move(-1); return
+                case #selector(moveDown(_:)): completionPopup.move(1); return
+                case #selector(insertNewline(_:)), #selector(insertTab(_:)):
+                    completionPopup.accept(); return
+                case #selector(cancelOperation(_:)): completionPopup.hide(); return
+                default: break
+                }
+            }
+            super.doCommand(by: selector)
+        }
+
+        /// Esc leaves the editor. Without `onExit` it does nothing: NSTextView would open the system word completion.
         override func cancelOperation(_ sender: Any?) {
-            if let onExit, !isCompletionActive { onExit() } else { super.cancelOperation(sender) }
+            if completionPopup.isVisible { completionPopup.hide() } else { onExit?() }
         }
 
         /// ⌘⏎ leaves the editor; it beats the menu's ⌘⏎ while the editor has the keyboard.
@@ -82,80 +99,68 @@ struct MarkdownTextEditor: NSViewRepresentable {
             }
             return super.performKeyEquivalent(with: event)
         }
-    }
 
-    /// A row of the link completion list.
-    final class CompletionItem: NSObject, STCompletionItem {
-        let id = UUID()
-        let candidate: DocsCompletion.Candidate
-        init(_ candidate: DocsCompletion.Candidate) { self.candidate = candidate }
+        override func resignFirstResponder() -> Bool {
+            completionPopup.hide()
+            return super.resignFirstResponder()
+        }
 
-        var view: NSView {
-            let title = NSTextField(labelWithString: candidate.title)
-            title.font = .systemFont(ofSize: NSFont.systemFontSize)
-            title.lineBreakMode = .byTruncatingTail
-            let path = NSTextField(labelWithString: candidate.path)
-            path.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-            path.textColor = .secondaryLabelColor
-            path.lineBreakMode = .byTruncatingMiddle
-            let stack = NSStackView(views: [title, path])
-            stack.orientation = .horizontal
-            stack.spacing = 8
-            stack.edgeInsets = NSEdgeInsets(top: 0, left: 6, bottom: 0, right: 6)
-            path.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            return stack
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            if newWindow == nil { completionPopup.hide() }
+            super.viewWillMove(toWindow: newWindow)
+        }
+
+        /// Shows `items` under the text at `range`, or hides the list when there are none.
+        func showCompletions(_ items: [DocsCompletion.Candidate], below range: NSRange) {
+            guard !items.isEmpty, let window else { completionPopup.hide(); return }
+            let anchor = firstRect(forCharacterRange: range, actualRange: nil)
+            completionPopup.show(items, under: anchor, in: window)
         }
     }
 
-    @MainActor final class Coordinator: NSObject, @preconcurrency STTextViewDelegate {
+    @MainActor final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: MarkdownTextEditor
         var isUpdating = false
         var appliedFonts: (FontChoice, FontChoice)?
         init(_ parent: MarkdownTextEditor) { self.parent = parent }
 
-        func textViewDidChangeText(_ notification: Notification) {
-            MainActor.assumeIsolated { changed(notification) }
+        func textDidChange(_ notification: Notification) {
+            guard !isUpdating, let tv = notification.object as? EditorView else { return }
+            let s = tv.string
+            // Restyling the storage would wipe the input method's marked-text underline; restyle once it is committed.
+            if !tv.hasMarkedText() { MarkdownHighlighter.apply(to: tv, font: parent.font, code: parent.codeFont) }
+            if parent.text != s { parent.text = s }
+            updateCompletions(tv)
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
-            guard let tv = notification.object as? EditorView, let onSelection = parent.onSelection else { return }
+            guard let tv = notification.object as? EditorView else { return }
+            if tv.completionPopup.isVisible, DocsCompletion.query(in: tv.string, caret: tv.selectedRange().location) == nil {
+                tv.completionPopup.hide()
+            }
+            guard let onSelection = parent.onSelection else { return }
             let range = tv.selectedRange()
             DispatchQueue.main.async { onSelection(range) }
         }
 
-        private func changed(_ notification: Notification) {
-            guard !isUpdating, let tv = notification.object as? EditorView else { return }
-            let s = tv.text ?? ""
-            MarkdownHighlighter.apply(to: tv, font: parent.font, code: parent.codeFont)
-            if parent.text != s { parent.text = s }
-            guard parent.completion != nil else { return }
-            if DocsCompletion.query(in: s, caret: tv.selectedRange().location) != nil {
-                DispatchQueue.main.async { tv.complete(nil) }
-            } else if tv.isCompletionActive {
-                tv.cancelComplete(nil)
+        private func updateCompletions(_ tv: EditorView) {
+            guard let source = parent.completion, tv.selectedRange().length == 0,
+                  let query = DocsCompletion.query(in: tv.string, caret: tv.selectedRange().location) else {
+                tv.completionPopup.hide()
+                return
             }
-        }
-
-        func textView(_ textView: STTextView, completionItemsAtLocation location: any NSTextLocation) -> [any STCompletionItem]? {
-            guard let source = parent.completion,
-                  let query = DocsCompletion.query(in: textView.text ?? "", caret: textView.selectedRange().location) else { return nil }
-            return DocsCompletion.candidates(query, pages: source.pages, fromPage: source.page).map(CompletionItem.init)
-        }
-
-        func textView(_ textView: STTextView, insertCompletionItem item: any STCompletionItem) {
-            defer { textView.cancelComplete(nil) }
-            guard let item = item as? CompletionItem,
-                  let query = DocsCompletion.query(in: textView.text ?? "", caret: textView.selectedRange().location) else { return }
-            textView.insertText(item.candidate.insertion, replacementRange: query.range)
+            tv.completionPopup.onPick = { [weak tv] candidate in
+                guard let tv, let query = DocsCompletion.query(in: tv.string, caret: tv.selectedRange().location) else { return }
+                tv.completionPopup.hide()
+                tv.insertText(candidate.insertion, replacementRange: query.range)
+            }
+            tv.showCompletions(DocsCompletion.candidates(query, pages: source.pages, fromPage: source.page), below: query.range)
         }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    /// The editor takes whatever space it is offered. Left to the default, SwiftUI sizes the scroll view through
-    /// Auto Layout and reaches STTextView's intrinsic size (the text laid out at the current width): in a split view
-    /// the column's min size then follows the line wrapping, the window loops on update-constraints passes and
-    /// AppKit throws (the Projects section crashed on opening).
+    /// The editor takes whatever space it is offered, so a split view's column never follows the text's line wrapping.
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
         proposal.replacingUnspecifiedDimensions(by: CGSize(width: 320, height: 160))
     }
@@ -163,15 +168,27 @@ struct MarkdownTextEditor: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = EditorView.scrollableTextView()
         scroll.hasHorizontalScroller = false
+        scroll.drawsBackground = false
         let tv = scroll.documentView as! EditorView
-        tv.isHorizontallyResizable = false  // wrap lines
+        tv.drawsBackground = false
+        tv.isRichText = false
+        tv.importsGraphics = false
+        tv.allowsUndo = true
+        tv.usesFindBar = true
+        tv.isIncrementalSearchingEnabled = true
+        tv.isAutomaticQuoteSubstitutionEnabled = false
+        tv.isAutomaticDashSubstitutionEnabled = false
+        tv.isAutomaticTextReplacementEnabled = false
+        tv.isAutomaticLinkDetectionEnabled = false
+        tv.smartInsertDeleteEnabled = false
         tv.font = MarkdownHighlighter.baseFont(font)
         tv.textColor = .textColor
-        tv.isAutomaticQuoteSubstitutionEnabled = false
-        tv.textContainer.lineFragmentPadding = 10
-        tv.textDelegate = context.coordinator
+        tv.insertionPointColor = .textColor
+        tv.textContainerInset = NSSize(width: 0, height: 6)
+        tv.textContainer?.lineFragmentPadding = 10
+        tv.delegate = context.coordinator
         configure(tv)
-        tv.text = text
+        tv.string = text
         MarkdownHighlighter.apply(to: tv, font: font, code: codeFont)
         context.coordinator.appliedFonts = (font, codeFont)
         if onExit != nil {
@@ -192,14 +209,14 @@ struct MarkdownTextEditor: NSViewRepresentable {
         context.coordinator.parent = self
         configure(tv)
         // Only replace on external changes, so typing doesn't lose the caret.
-        if (tv.text ?? "") != text && !tv.hasMarkedText() {
+        if tv.string != text && !tv.hasMarkedText() {
             let selection = tv.selectedRange()
             context.coordinator.isUpdating = true
-            tv.text = text
+            tv.string = text
             context.coordinator.isUpdating = false
             MarkdownHighlighter.apply(to: tv, font: font, code: codeFont)
             context.coordinator.appliedFonts = (font, codeFont)
-            if selection.upperBound <= (text as NSString).length { tv.textSelection = selection }
+            if selection.upperBound <= (text as NSString).length { tv.setSelectedRange(selection) }
         }
         if let applied = context.coordinator.appliedFonts, applied != (font, codeFont) {
             tv.font = MarkdownHighlighter.baseFont(font)
@@ -210,6 +227,116 @@ struct MarkdownTextEditor: NSViewRepresentable {
             tv.insertText(value, replacementRange: tv.selectedRange())
             DispatchQueue.main.async { insertion.wrappedValue = nil }
         }
+    }
+}
+
+/// The link completion list: a borderless child panel under the caret. It never takes the keyboard; the editor
+/// forwards the arrows, ⏎/⇥ and Esc to it (`EditorView.doCommand`).
+@MainActor final class CompletionPopup: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+    private var items: [DocsCompletion.Candidate] = []
+    var onPick: ((DocsCompletion.Candidate) -> Void)?
+    private lazy var table: NSTableView = {
+        let table = NSTableView()
+        table.addTableColumn(NSTableColumn(identifier: .init("item")))
+        table.headerView = nil
+        table.style = .plain
+        table.backgroundColor = .clear
+        table.rowHeight = 22
+        table.intercellSpacing = NSSize(width: 0, height: 0)
+        table.dataSource = self
+        table.delegate = self
+        table.target = self
+        table.action = #selector(clicked)
+        return table
+    }()
+    private lazy var panel: NSPanel = {
+        let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        let effect = NSVisualEffectView()
+        effect.material = .menu
+        effect.state = .active
+        effect.wantsLayer = true
+        effect.layer?.cornerRadius = 8
+        effect.layer?.masksToBounds = true
+        let scroll = NSScrollView()
+        scroll.documentView = table
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        effect.addSubview(scroll)
+        NSLayoutConstraint.activate([
+            scroll.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: effect.topAnchor, constant: 4),
+            scroll.bottomAnchor.constraint(equalTo: effect.bottomAnchor, constant: -4),
+        ])
+        panel.contentView = effect
+        return panel
+    }()
+
+    var isVisible: Bool { panel.isVisible }
+
+    /// `anchor` is the completed text's rect in screen coordinates.
+    func show(_ items: [DocsCompletion.Candidate], under anchor: NSRect, in window: NSWindow) {
+        let previous = table.selectedRow >= 0 && table.selectedRow < self.items.count ? self.items[table.selectedRow] : nil
+        self.items = items
+        table.reloadData()
+        let row = previous.flatMap { items.firstIndex(of: $0) } ?? 0
+        table.selectRowIndexes([row], byExtendingSelection: false)
+        table.scrollRowToVisible(row)
+        let height = CGFloat(min(items.count, 8)) * table.rowHeight + 8
+        var frame = NSRect(x: anchor.minX, y: anchor.minY - height - 4, width: 380, height: height)
+        if let screen = window.screen?.visibleFrame {
+            if frame.minY < screen.minY { frame.origin.y = anchor.maxY + 4 }
+            frame.origin.x = min(frame.minX, screen.maxX - frame.width)
+        }
+        panel.setFrame(frame, display: true)
+        if panel.parent == nil { window.addChildWindow(panel, ordered: .above) }
+        panel.orderFront(nil)
+    }
+
+    func hide() {
+        guard panel.isVisible else { return }
+        panel.parent?.removeChildWindow(panel)
+        panel.orderOut(nil)
+    }
+
+    func move(_ delta: Int) {
+        guard !items.isEmpty else { return }
+        let row = max(0, min(items.count - 1, table.selectedRow + delta))
+        table.selectRowIndexes([row], byExtendingSelection: false)
+        table.scrollRowToVisible(row)
+    }
+
+    func accept() {
+        let row = table.selectedRow
+        guard row >= 0, row < items.count else { hide(); return }
+        onPick?(items[row])
+    }
+
+    @objc private func clicked() {
+        if table.clickedRow >= 0 { table.selectRowIndexes([table.clickedRow], byExtendingSelection: false); accept() }
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int { items.count }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let candidate = items[row]
+        let title = NSTextField(labelWithString: candidate.title)
+        title.font = .systemFont(ofSize: NSFont.systemFontSize)
+        title.lineBreakMode = .byTruncatingTail
+        let path = NSTextField(labelWithString: candidate.path)
+        path.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        path.textColor = .secondaryLabelColor
+        path.lineBreakMode = .byTruncatingMiddle
+        path.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let stack = NSStackView(views: [title, path])
+        stack.orientation = .horizontal
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
+        return stack
     }
 }
 
@@ -237,8 +364,9 @@ enum MarkdownHighlighter {
 
     enum Style { case heading, bold, code, marker, quote, link, reference, comment, codeBlock }
 
-    @MainActor static func apply(to tv: STTextView, font: FontChoice, code codeChoice: FontChoice) {
-        let text = tv.text ?? ""
+    @MainActor static func apply(to tv: NSTextView, font: FontChoice, code codeChoice: FontChoice) {
+        guard let storage = tv.textStorage else { return }
+        let text = storage.string
         let ns = text as NSString
         let full = NSRange(location: 0, length: ns.length)
         guard full.length > 0 else { return }
@@ -247,23 +375,26 @@ enum MarkdownHighlighter {
         let code = codeFont(codeChoice, editor: font)
         let heading = NSFontManager.shared.convert(
             FontChoice(family: font.family, size: font.size + 2).nsFont(monospaced: false), toHaveTrait: .boldFontMask)
-        tv.addAttributes([.font: base, .foregroundColor: NSColor.textColor, .backgroundColor: NSColor.clear], range: full)
+        storage.beginEditing()
+        defer { storage.endEditing() }
+        storage.setAttributes([.font: base, .foregroundColor: NSColor.textColor], range: full)
+        tv.typingAttributes = [.font: base, .foregroundColor: NSColor.textColor]
         for (re, style) in rules {
             for m in re.matches(in: text, range: full) {
                 let r = m.range
                 switch style {
                 case .heading:
-                    tv.addAttributes([.font: heading,
+                    storage.addAttributes([.font: heading,
                                       .foregroundColor: NSColor.labelColor], range: r)
-                case .bold: tv.addAttributes([.font: bold], range: r)
-                case .code: tv.addAttributes([.font: code, .foregroundColor: NSColor.systemPink], range: r)
-                case .marker: tv.addAttributes([.foregroundColor: NSColor.secondaryLabelColor], range: r)
-                case .quote: tv.addAttributes([.foregroundColor: NSColor.secondaryLabelColor], range: r)
-                case .link: tv.addAttributes([.foregroundColor: NSColor.linkColor], range: r)
-                case .reference: tv.addAttributes([.font: code, .foregroundColor: NSColor.linkColor], range: r)
-                case .comment: tv.addAttributes([.foregroundColor: NSColor.tertiaryLabelColor], range: r)
+                case .bold: storage.addAttributes([.font: bold], range: r)
+                case .code: storage.addAttributes([.font: code, .foregroundColor: NSColor.systemPink], range: r)
+                case .marker: storage.addAttributes([.foregroundColor: NSColor.secondaryLabelColor], range: r)
+                case .quote: storage.addAttributes([.foregroundColor: NSColor.secondaryLabelColor], range: r)
+                case .link: storage.addAttributes([.foregroundColor: NSColor.linkColor], range: r)
+                case .reference: storage.addAttributes([.font: code, .foregroundColor: NSColor.linkColor], range: r)
+                case .comment: storage.addAttributes([.foregroundColor: NSColor.tertiaryLabelColor], range: r)
                 case .codeBlock:
-                    tv.addAttributes([.font: code, .foregroundColor: NSColor.systemPink,
+                    storage.addAttributes([.font: code, .foregroundColor: NSColor.systemPink,
                                       .backgroundColor: NSColor.quaternaryLabelColor.withAlphaComponent(0.08)], range: r)
                 }
             }

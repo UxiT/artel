@@ -172,7 +172,7 @@ struct NewTaskSheet: View {
                         draft.switchProject(to: new, from: model.project(draft.projectID))
                     })) {
                         ForEach(model.state.projects) { p in
-                            Label { Text(p.name) } icon: { Image(nsImage: ProjectPalette.swatchImage(p.colorIndex)) }
+                            Label { Text(p.name) } icon: { Image(nsImage: ProjectPalette.menuImage(for: p)) }
                                 .tag(p.id)
                         }
                     }

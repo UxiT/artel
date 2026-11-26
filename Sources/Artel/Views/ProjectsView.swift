@@ -4,7 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Projects section detail: the selected project's documentation site (docs/SPEC.md §4.9), its agent context
-/// files and, from the toolbar, its file tree. The project list is the window sidebar (`ProjectListSidebar`).
+/// files and, from the title bar, its file tree. The project list is the tool panel (`ProjectListSidebar`).
 struct ProjectsView: View {
     @Environment(AppModel.self) private var model
 
@@ -77,7 +77,7 @@ private struct ProjectDocsView: View {
     @State private var creatingDocs = false
     @State private var newRule = false
     @FocusState private var searchFocused: Bool
-    // File tree (toolbar "Files").
+    // File tree (title bar "Files").
     @State private var docIndex = DocIndex()
     @State private var listedPaths: [String] = []
     @State private var files: [FileNode] = []

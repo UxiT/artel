@@ -20,6 +20,8 @@ public struct Project: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Documentation folder relative to the project ("" = the project root); nil = detect (`DocsSite.detect`).
     /// Kept in the app's own state, never in the project: each operator points at the docs on their machine.
     public var docsFolder: String?
+    /// An emoji shown instead of the coloured letter badge; nil = the badge. Always a single emoji (`normalizedIcon`).
+    public var icon: String?
 
     public init(id: UUID = UUID(), name: String, path: String, colorIndex: Int = 0,
                 permissionMode: String = "auto", defaultModel: String? = nil, taskPrefix: String = "ARTEL",
@@ -48,9 +50,20 @@ public struct Project: Codable, Identifiable, Equatable, Hashable, Sendable {
         storeArtelInGit = try c.decodeIfPresent(Bool.self, forKey: .storeArtelInGit) ?? true
         editorPath = try c.decodeIfPresent(String.self, forKey: .editorPath)
         docsFolder = try c.decodeIfPresent(String.self, forKey: .docsFolder)
+        icon = Self.normalizedIcon(try c.decodeIfPresent(String.self, forKey: .icon))
     }
 
     public var url: URL { URL(fileURLWithPath: path, isDirectory: true) }
+
+    /// The first emoji of `text` (a whole grapheme: flags, skin tones, ZWJ sequences), or nil when it doesn't
+    /// start with one. Plain digits, `#` and `*` are emoji-capable but not emoji on their own, so they don't count.
+    public static func normalizedIcon(_ text: String?) -> String? {
+        guard let first = text?.trimmingCharacters(in: .whitespacesAndNewlines).first else { return nil }
+        let scalars = first.unicodeScalars
+        let isEmoji = scalars.contains { $0.properties.isEmojiPresentation }
+            || (scalars.first?.properties.isEmoji == true && scalars.count > 1)
+        return isEmoji ? String(first) : nil
+    }
 }
 
 /// A slot in the workspace: one agent process living in Artel's tmux server.

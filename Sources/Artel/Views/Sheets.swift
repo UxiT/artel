@@ -203,6 +203,7 @@ struct ProjectSettingsSheet: View {
             Form {
                 TextField("Name", text: $project.name)
                 LabeledContent("Folder") { Text(project.path).textSelection(.enabled).foregroundStyle(.secondary) }
+                ProjectIconRow(project: $project)
                 LabeledContent("Color") {
                     ColorSwatches(selection: $project.colorIndex)
                 }
@@ -250,6 +251,39 @@ struct ProjectSettingsSheet: View {
         }
         .padding(20)
         .frame(width: 520)
+    }
+}
+
+/// Project icon: an emoji typed, pasted or picked from the system Emoji & Symbols palette; replaces the letter badge.
+private struct ProjectIconRow: View {
+    @Binding var project: Project
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        LabeledContent("Icon") {
+            HStack(spacing: 8) {
+                TextField("", text: $draft, prompt: Text("emoji"))
+                    .frame(width: 60)
+                    .focused($focused)
+                    .onChange(of: draft) { _, text in
+                        // Keep one emoji: the newest one typed or picked, else nothing.
+                        let icon = Project.normalizedIcon(text.last.map(String.init)) ?? Project.normalizedIcon(text)
+                        project.icon = icon
+                        if (icon ?? "") != text { draft = icon ?? "" }
+                    }
+                Button("Choose…") {
+                    focused = true
+                    // The palette inserts into the focused field.
+                    DispatchQueue.main.async { NSApp.orderFrontCharacterPalette(nil) }
+                }
+                if project.icon != nil {
+                    Button("Use Letter") { draft = "" }
+                }
+            }
+        }
+        .help("An emoji shown instead of the coloured letter badge")
+        .onAppear { draft = project.icon ?? "" }
     }
 }
 

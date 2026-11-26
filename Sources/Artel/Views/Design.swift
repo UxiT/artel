@@ -28,6 +28,19 @@ enum ProjectPalette {
     static func color(_ i: Int) -> Color { swatches[index(i)].color }
     static func name(_ i: Int) -> String { swatches[index(i)].name }
 
+    /// A project's marker for menu items: its emoji, else its colour swatch.
+    @MainActor static func menuImage(for project: Project, size: CGFloat = 14) -> NSImage {
+        guard let icon = project.icon else { return swatchImage(project.colorIndex, size: size - 2) }
+        let text = NSAttributedString(string: icon, attributes: [.font: NSFont.systemFont(ofSize: size - 2)])
+        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
+            let s = text.size()
+            text.draw(at: NSPoint(x: rect.midX - s.width / 2, y: rect.midY - s.height / 2))
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+
     /// A non-template image for menu items: SF Symbols in NSMenu are templates and lose their colour.
     @MainActor static func swatchImage(_ i: Int, size: CGFloat = 12) -> NSImage {
         let color = NSColor(color(i))
@@ -41,14 +54,26 @@ enum ProjectPalette {
     }
 }
 
-/// Project marker: a coloured rounded square with the first letter of the project name.
+/// Project marker: the project's emoji, else a coloured rounded square with the first letter of its name.
 struct ProjectBadge: View {
     let project: Project?
     var size: CGFloat = 16
 
     var body: some View {
+        if let icon = project?.icon {
+            Text(icon)
+                .font(.system(size: size * 0.85))
+                .frame(width: size, height: size)
+                .accessibilityHidden(true)
+                .help(project.map { "Project \($0.name)" } ?? "")
+        } else {
+            letterBadge
+        }
+    }
+
+    private var letterBadge: some View {
         let name = project?.name ?? "?"
-        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+        return RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
             .fill(ProjectPalette.color(project?.colorIndex ?? 0).gradient)
             .frame(width: size, height: size)
             .overlay {

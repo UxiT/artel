@@ -268,6 +268,26 @@ private func fold(_ events: [HookEvent]) -> SessionStatus {
         #expect(project.isGitRepository)
         #expect(!ProjectValidator.issues(at: dir).contains(.notAGitRepository))
     }
+
+    @Test func iconIsOneEmoji() throws {
+        #expect(Project.normalizedIcon("🚀") == "🚀")
+        #expect(Project.normalizedIcon(" 🚀🐸 ") == "🚀")
+        #expect(Project.normalizedIcon("🇷🇺") == "🇷🇺")            // flag: two scalars, one grapheme
+        #expect(Project.normalizedIcon("👩🏽‍💻") == "👩🏽‍💻")        // skin tone + ZWJ sequence
+        #expect(Project.normalizedIcon("❤️") == "❤️")              // text-style symbol with the emoji selector
+        #expect(Project.normalizedIcon("A") == nil)
+        #expect(Project.normalizedIcon("7") == nil)
+        #expect(Project.normalizedIcon("#") == nil)
+        #expect(Project.normalizedIcon("") == nil)
+        #expect(Project.normalizedIcon(nil) == nil)
+        // Stored in state.json; an old state without the key decodes to no icon.
+        var project = Project(name: "p", path: "/tmp/p")
+        project.icon = "🐸"
+        let decoded = try JSONDecoder().decode(Project.self, from: JSONEncoder().encode(project))
+        #expect(decoded.icon == "🐸")
+        let old = #"{"id":"\#(UUID().uuidString)","name":"p","path":"/tmp/p"}"#
+        #expect(try JSONDecoder().decode(Project.self, from: Data(old.utf8)).icon == nil)
+    }
 }
 
 @Suite struct GridLayoutTests {
