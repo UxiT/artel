@@ -1076,9 +1076,6 @@ private struct CreateDocsSheet: View {
             }
             Text(normalized.map { "\(project.name)/\($0.isEmpty ? "" : $0 + "/")index.md" } ?? "Папка должна быть внутри проекта")
                 .font(.caption.monospaced()).foregroundStyle(normalized == nil ? Color.red : .secondary)
-            Text("Выбор папки хранится только в настройках Artel на этом компьютере. Коллега, который работает с репозиторием через свой Artel, укажет её у себя (правый клик по «Документация»).")
-                .font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
                 Button("Отмена") { dismiss() }.keyboardShortcut(.cancelAction)
